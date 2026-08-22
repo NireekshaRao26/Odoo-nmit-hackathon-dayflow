@@ -444,8 +444,7 @@ async function getAllAttendance(date, search, companyCode) {
 
 // Apply Leave
 async function applyLeave(leaveData) {
-  const newLeave = {
-    id: `lr-${Date.now()}`,
+  const leaveFields = {
     user_id: leaveData.userId,
     employee_id: leaveData.employeeId,
     leave_type: leaveData.leaveType,
@@ -462,66 +461,84 @@ async function applyLeave(leaveData) {
   };
 
   try {
+    // Do NOT set 'id' — let Supabase auto-generate a valid UUID
     const { data, error } = await supabaseAdmin
       .from('leave_requests')
-      .insert(newLeave)
+      .insert(leaveFields)
       .select()
       .single();
     if (!error && data) {
-      await logActivity(leaveData.userId, leaveData.employeeId, 'leave', 'Submitted Leave Request', `Applied for ${newLeave.days_count} day(s) of ${newLeave.leave_type}`);
+      // Also sync to memory store with the DB-generated id
+      memoryStore.leaveRequests.unshift(data);
+      await logActivity(leaveData.userId, leaveData.employeeId, 'leave', 'Submitted Leave Request', `Applied for ${leaveFields.days_count} day(s) of ${leaveFields.leave_type}`);
       return { data };
     }
   } catch (e) {
-    // DB fallback
+    console.error('applyLeave DB insert error:', e.message || e);
   }
 
-  memoryStore.leaveRequests.unshift(newLeave);
-  await logActivity(leaveData.userId, leaveData.employeeId, 'leave', 'Submitted Leave Request', `Applied for ${newLeave.days_count} day(s) of ${newLeave.leave_type}`);
-  return { data: newLeave };
+  // Memory-only fallback with a string id
+  const memLeave = { id: `lr-${Date.now()}`, ...leaveFields };
+  memoryStore.leaveRequests.unshift(memLeave);
+  await logActivity(leaveData.userId, leaveData.employeeId, 'leave', 'Submitted Leave Request', `Applied for ${leaveFields.days_count} day(s) of ${leaveFields.leave_type}`);
+  return { data: memLeave };
 }
 
 // Get User Leaves
 async function getUserLeaves(userId, employeeId) {
+  let dbResults = [];
   try {
     const { data, error } = await supabaseAdmin
       .from('leave_requests')
       .select('*')
       .or(`user_id.eq.${userId},employee_id.eq.${employeeId}`)
       .order('applied_at', { ascending: false });
-    if (!error && data && data.length > 0) return data;
+    if (!error && data) dbResults = data;
   } catch (e) {
     // DB fallback
   }
 
-  return memoryStore.leaveRequests
-    .filter(l => l.user_id === userId || l.employee_id === employeeId)
+  // Merge memory-only leaves for this user
+  const dbIds = new Set(dbResults.map(r => r.id));
+  const memOnly = memoryStore.leaveRequests
+    .filter(l => (l.user_id === userId || l.employee_id === employeeId) && !dbIds.has(l.id));
+
+  return [...dbResults, ...memOnly]
     .sort((a, b) => new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime());
 }
 
 // Get All Leaves (optionally scoped to a company)
 async function getAllLeaves(companyCode) {
+  let dbResults = [];
   try {
     const { data, error } = await supabaseAdmin
       .from('leave_requests')
       .select('*, profiles:user_id(id, employee_id, company_code)')
       .order('applied_at', { ascending: false });
-    if (!error && data && data.length > 0) {
-      let results = data;
-      if (companyCode) {
-        results = results.filter(r => r.profiles?.company_code === companyCode);
-      }
-      return results;
+    if (!error && data) {
+      dbResults = data;
     }
   } catch (e) {
     // DB fallback
   }
+
+  // Merge memory-only leaves that aren't in DB results
+  const dbIds = new Set(dbResults.map(r => r.id));
+  const memOnly = memoryStore.leaveRequests.filter(l => !dbIds.has(l.id));
+  let results = [...dbResults, ...memOnly];
+
   if (companyCode) {
     const companyUserIds = new Set(
       memoryStore.profiles.filter(p => p.company_code === companyCode).map(p => p.id)
     );
-    return memoryStore.leaveRequests.filter(l => companyUserIds.has(l.user_id));
+    results = results.filter(r => {
+      const profileCode = r.profiles?.company_code;
+      if (profileCode) return profileCode === companyCode;
+      // Fallback: check via user_id against company profiles
+      return companyUserIds.has(r.user_id);
+    });
   }
-  return memoryStore.leaveRequests;
+  return results;
 }
 
 // Update Leave Status
@@ -1188,40 +1205,40 @@ async function revertAttendanceForLeave(userId, startDate, endDate) {
 // ============================================================
 
 async function getAllLeavesWithProfiles(search, companyCode) {
+  let dbResults = [];
   try {
     const { data, error } = await supabaseAdmin
       .from('leave_requests')
       .select('*, profiles:user_id(id, employee_id, full_name, email, department, position, avatar_url, company_code)')
       .order('applied_at', { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      let results = data;
-      // Filter by company_code if provided
-      if (companyCode) {
-        results = results.filter(r => r.profiles?.company_code === companyCode);
-      }
-      if (search) {
-        const q = search.toLowerCase().trim();
-        results = results.filter(r => {
-          const empId = (r.employee_id || '').toLowerCase();
-          const fullName = (r.profiles?.full_name || '').toLowerCase();
-          const email = (r.profiles?.email || '').toLowerCase();
-          return empId.includes(q) || fullName.includes(q) || email.includes(q);
-        });
-      }
-      return results;
+    if (!error && data) {
+      dbResults = data;
     }
   } catch (e) {
     console.error('getAllLeavesWithProfiles error:', e.message);
   }
-  // Memory fallback with profile join
-  let results = memoryStore.leaveRequests.map(r => {
-    const prof = memoryStore.profiles.find(p => p.id === r.user_id || p.employee_id === r.employee_id);
-    return { ...r, profiles: prof || null };
-  });
-  // Filter by company_code in memory fallback
+
+  // Merge memory-only leaves that aren't in DB results (with profile join)
+  const dbIds = new Set(dbResults.map(r => r.id));
+  const memOnly = memoryStore.leaveRequests
+    .filter(l => !dbIds.has(l.id))
+    .map(r => {
+      const prof = memoryStore.profiles.find(p => p.id === r.user_id || p.employee_id === r.employee_id);
+      return { ...r, profiles: prof || null };
+    });
+  let results = [...dbResults, ...memOnly];
+
+  // Filter by company_code if provided
   if (companyCode) {
-    results = results.filter(r => r.profiles?.company_code === companyCode);
+    const companyUserIds = new Set(
+      memoryStore.profiles.filter(p => p.company_code === companyCode).map(p => p.id)
+    );
+    results = results.filter(r => {
+      const profileCode = r.profiles?.company_code;
+      if (profileCode) return profileCode === companyCode;
+      return companyUserIds.has(r.user_id);
+    });
   }
   if (search) {
     const q = search.toLowerCase().trim();
