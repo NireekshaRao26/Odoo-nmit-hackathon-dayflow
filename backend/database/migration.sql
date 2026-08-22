@@ -114,3 +114,52 @@ CREATE POLICY "salary_info_all_hr_policy" ON public.salary_info
   USING (
     EXISTS (SELECT 1 FROM public.profiles WHERE public.profiles.id = auth.uid() AND public.profiles.role = 'hr')
   );
+
+-- ----------------------------------------------------
+-- ATTENDANCE SECURITY & UNIQUE CONSTRAINT
+-- ----------------------------------------------------
+
+-- Deduplicate attendance records (keeping the earliest record for each user/date pair)
+DELETE FROM public.attendance a
+WHERE a.id NOT IN (
+  SELECT DISTINCT ON (user_id, date) id
+  FROM public.attendance
+  ORDER BY user_id, date, created_at ASC
+);
+
+-- Apply unique constraint on user_id and date to prevent duplicate shifts
+ALTER TABLE public.attendance DROP CONSTRAINT IF EXISTS unique_user_date;
+ALTER TABLE public.attendance ADD CONSTRAINT unique_user_date UNIQUE (user_id, date);
+
+-- Enable RLS for attendance
+ALTER TABLE public.attendance ENABLE ROW LEVEL SECURITY;
+
+-- Select policy: User can read their own, HR can read all
+DROP POLICY IF EXISTS "attendance_select_policy" ON public.attendance;
+CREATE POLICY "attendance_select_policy" ON public.attendance
+  FOR SELECT
+  TO authenticated
+  USING (
+    (auth.uid() = user_id) OR
+    (EXISTS (SELECT 1 FROM public.profiles WHERE public.profiles.id = auth.uid() AND public.profiles.role = 'hr'))
+  );
+
+-- Insert policy: User can insert their own, HR can insert all
+DROP POLICY IF EXISTS "attendance_insert_policy" ON public.attendance;
+CREATE POLICY "attendance_insert_policy" ON public.attendance
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    (auth.uid() = user_id) OR
+    (EXISTS (SELECT 1 FROM public.profiles WHERE public.profiles.id = auth.uid() AND public.profiles.role = 'hr'))
+  );
+
+-- Update policy: User can update their own, HR can update all
+DROP POLICY IF EXISTS "attendance_update_policy" ON public.attendance;
+CREATE POLICY "attendance_update_policy" ON public.attendance
+  FOR UPDATE
+  TO authenticated
+  USING (
+    (auth.uid() = user_id) OR
+    (EXISTS (SELECT 1 FROM public.profiles WHERE public.profiles.id = auth.uid() AND public.profiles.role = 'hr'))
+  );

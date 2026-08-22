@@ -566,9 +566,8 @@ export default function DashboardPage() {
         {/* TAB 2: ATTENDANCE MODULE */}
         {activeTab === "attendance" && (
           <AttendanceModule
-            records={isHr ? allAttendance : userAttendanceHistory}
-            isHr={isHr}
-            loading={loading}
+            viewerId={currentUser.id}
+            viewerRole={currentUser.role}
           />
         )}
 

@@ -220,7 +220,8 @@ async function getAllProfiles() {
 
 // Get Today's Attendance Status
 async function getTodayAttendance(userId, employeeId) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const offset = new Date().getTimezoneOffset() * 60000;
+  const todayStr = new Date(Date.now() - offset).toISOString().split('T')[0];
   try {
     const { data, error } = await supabaseAdmin
       .from('attendance')
@@ -240,7 +241,8 @@ async function getTodayAttendance(userId, employeeId) {
 
 // Clock-In
 async function clockIn(userId, employeeId) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const offset = new Date().getTimezoneOffset() * 60000;
+  const todayStr = new Date(Date.now() - offset).toISOString().split('T')[0];
   const nowIso = new Date().toISOString();
 
   const existing = await getTodayAttendance(userId, employeeId);
@@ -290,7 +292,8 @@ async function clockIn(userId, employeeId) {
 
 // Clock-Out
 async function clockOut(userId, employeeId) {
-  const todayStr = new Date().toISOString().split('T')[0];
+  const offset = new Date().getTimezoneOffset() * 60000;
+  const todayStr = new Date(Date.now() - offset).toISOString().split('T')[0];
   const nowIso = new Date().toISOString();
 
   let todayRecord = await getTodayAttendance(userId, employeeId);
@@ -300,7 +303,25 @@ async function clockOut(userId, employeeId) {
 
   const checkInTime = new Date(todayRecord.check_in).getTime();
   const checkOutTime = new Date(nowIso).getTime();
-  const workHours = Math.max(0.1, Number(((checkOutTime - checkInTime) / 3600000).toFixed(2)));
+
+  // Resolve break hours from salary info (default 1.0)
+  let breakHours = 1.0;
+  try {
+    const { data } = await supabaseAdmin.from('salary_info').select('break_hours').eq('id', userId).maybeSingle();
+    if (data && data.break_hours !== undefined) {
+      breakHours = Number(data.break_hours);
+    } else {
+      const memSalary = memoryStore.salaryInfo.find(s => s.id === userId);
+      if (memSalary && memSalary.break_hours !== undefined) {
+        breakHours = Number(memSalary.break_hours);
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to fetch break hours from salary_info:', e.message);
+  }
+
+  const elapsed = Math.max(0, (checkOutTime - checkInTime) / 3600000);
+  const workHours = Number((elapsed > breakHours ? elapsed - breakHours : elapsed).toFixed(2));
 
   try {
     const { data, error } = await supabaseAdmin
@@ -350,17 +371,59 @@ async function getUserAttendanceHistory(userId, employeeId) {
 }
 
 // Get All Attendance
-async function getAllAttendance() {
+async function getAllAttendance(date, search) {
   try {
-    const { data, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('attendance')
-      .select('*')
-      .order('date', { ascending: false });
-    if (!error && data && data.length > 0) return data;
+      .select('*, profiles:user_id(id, employee_id, full_name, email, role, avatar_url, position, department)');
+
+    if (date) {
+      query = query.eq('date', date);
+    }
+
+    const { data, error } = await query;
+    if (!error && data) {
+      let results = data;
+      // Filter by search on full_name, email, or employee_id
+      if (search) {
+        const q = search.toLowerCase().trim();
+        results = results.filter(rec => {
+          const empId = (rec.employee_id || '').toLowerCase();
+          const fullName = (rec.profiles?.full_name || '').toLowerCase();
+          const email = (rec.profiles?.email || '').toLowerCase();
+          return empId.includes(q) || fullName.includes(q) || email.includes(q);
+        });
+      }
+      return results;
+    }
   } catch (e) {
-    // DB fallback
+    console.error('Error in getAllAttendance:', e);
   }
-  return memoryStore.attendance;
+
+  // fallback to memoryStore
+  let results = memoryStore.attendance;
+  if (date) {
+    results = results.filter(r => r.date === date);
+  }
+  if (search) {
+    const q = search.toLowerCase().trim();
+    results = results.filter(rec => {
+      const empId = (rec.employee_id || '').toLowerCase();
+      const prof = memoryStore.profiles.find(p => p.id === rec.user_id || p.employee_id === rec.employee_id);
+      const fullName = (prof?.full_name || '').toLowerCase();
+      const email = (prof?.email || '').toLowerCase();
+      return empId.includes(q) || fullName.includes(q) || email.includes(q);
+    });
+  }
+
+  // Join profiles for fallback representation
+  return results.map(rec => {
+    const prof = memoryStore.profiles.find(p => p.id === rec.user_id || p.employee_id === rec.employee_id);
+    return {
+      ...rec,
+      profiles: prof || null
+    };
+  });
 }
 
 // Apply Leave

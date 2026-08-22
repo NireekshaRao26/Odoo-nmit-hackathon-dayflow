@@ -1,6 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect, useCallback } from "react";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
 export interface AttendanceRecord {
   id: string;
@@ -14,89 +16,432 @@ export interface AttendanceRecord {
 }
 
 interface AttendanceModuleProps {
-  records: AttendanceRecord[];
-  isHr: boolean;
-  loading?: boolean;
+  viewerId: string;
+  viewerRole: string;
 }
 
-export default function AttendanceModule({ records, isHr, loading = false }: AttendanceModuleProps) {
+interface SummaryStats {
+  selectedMonth: string;
+  daysPresent: number;
+  leavesCount: number;
+  totalWorkingDays: number;
+  payableDays: number;
+}
+
+interface HRRecord {
+  id: string;
+  user_id: string;
+  employee_id: string;
+  full_name: string;
+  email: string;
+  department: string;
+  position: string;
+  check_in: string | null;
+  check_out: string | null;
+  work_hours: number;
+  status: "present" | "absent" | "leave" | "checked-in";
+}
+
+interface EmployeeRecord {
+  date: string;
+  check_in: string | null;
+  check_out: string | null;
+  work_hours: number;
+  extra_hours: number;
+  status: "present" | "absent" | "leave" | "weekend" | "checked-in";
+}
+
+export default function AttendanceModule({ viewerId, viewerRole }: AttendanceModuleProps) {
+  const isHr = viewerRole === "hr";
+
+  // Date states
+  const getInitialLocalDateStr = () => {
+    const offset = new Date().getTimezoneOffset() * 60000;
+    return new Date(Date.now() - offset).toISOString().split("T")[0];
+  };
+
+  const getInitialLocalMonthStr = () => {
+    const offset = new Date().getTimezoneOffset() * 60000;
+    return new Date(Date.now() - offset).toISOString().substring(0, 7);
+  };
+
+  const [selectedDate, setSelectedDate] = useState(getInitialLocalDateStr());
+  const [selectedMonth, setSelectedMonth] = useState(getInitialLocalMonthStr());
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Data states
+  const [hrRecords, setHrRecords] = useState<HRRecord[]>([]);
+  const [employeeRecords, setEmployeeRecords] = useState<EmployeeRecord[]>([]);
+  const [summary, setSummary] = useState<SummaryStats | null>(null);
+  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
+
+  // 1. Load HR Daily Records
+  const loadHRData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/attendance/all?date=${selectedDate}&search=${searchQuery}&requesterId=${viewerId}`
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load employee records.");
+      setHrRecords(data.records || []);
+    } catch (err: any) {
+      setError(err.message || "Failed to load attendance directory.");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate, searchQuery, viewerId]);
+
+  // 2. Load Employee Monthly Calendar & Summary
+  const loadEmployeeData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/attendance/history?userId=${viewerId}&requesterId=${viewerId}&month=${selectedMonth}`
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load attendance history.");
+      setEmployeeRecords(data.history || []);
+      setSummary(data.summary || null);
+    } catch (err: any) {
+      setError(err.message || "Failed to load attendance history.");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedMonth, viewerId]);
+
+  useEffect(() => {
+    if (isHr) {
+      loadHRData();
+    } else {
+      loadEmployeeData();
+    }
+  }, [isHr, loadHRData, loadEmployeeData]);
+
+  // Adjust date (HR View) - Timezone Safe Day Navigation
+  const handleAdjustDate = (amount: number) => {
+    const current = new Date(selectedDate + "T12:00:00");
+    current.setDate(current.getDate() + amount);
+    const yyyy = current.getFullYear();
+    const mm = String(current.getMonth() + 1).padStart(2, "0");
+    const dd = String(current.getDate()).padStart(2, "0");
+    setSelectedDate(`${yyyy}-${mm}-${dd}`);
+  };
+
+  // Formatting helpers
+  const formatTime = (isoString: string | null) => {
+    if (!isoString) return "-";
+    return new Date(isoString).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  };
+
+  const formatDateLabel = (dateStr: string) => {
+    const [y, m, d] = dateStr.split("-");
+    return `${d}/${m}/${y}`;
+  };
+
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case "present":
+        return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+      case "checked-in":
+        return "bg-purple-500/10 text-purple-400 border border-purple-500/20";
+      case "leave":
+        return "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+      case "weekend":
+        return "bg-zinc-800 text-zinc-500 border border-zinc-700/30";
+      case "absent":
+      default:
+        return "bg-rose-500/10 text-rose-400 border border-rose-500/20";
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-white uppercase tracking-wide">Attendance Module</h2>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            {isHr ? "Company-wide employee attendance records" : "Your daily attendance history"}
-          </p>
+    <div className="space-y-6">
+      {toastMsg && (
+        <div className="fixed bottom-6 right-6 z-50 rounded-md bg-purple-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xl animate-bounce">
+          {toastMsg}
         </div>
+      )}
 
-        <span className="rounded-md bg-zinc-900 border border-zinc-800 px-3 py-1 text-xs text-zinc-400 font-mono">
-          Total Records: {records.length}
-        </span>
-      </div>
+      {/* ---------------------------------------------------- */}
+      {/* HR / ADMIN ATTENDANCE VIEW */}
+      {/* ---------------------------------------------------- */}
+      {isHr && (
+        <div className="space-y-6">
+          {/* Header & Date Navigation Toolbar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-850">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-white uppercase tracking-wide">
+                Attendance Directory
+              </h1>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Monitor employee shifts, leaves, and working duration.
+              </p>
+            </div>
 
-      <div className="rounded-md border border-zinc-800 bg-zinc-900/60 overflow-hidden shadow-sm">
-        <table className="w-full text-left text-xs text-zinc-300">
-          <thead className="bg-zinc-950 text-zinc-400 uppercase tracking-wider text-[10px] border-b border-zinc-800">
-            <tr>
-              {isHr && <th className="px-5 py-3">Employee ID</th>}
-              <th className="px-5 py-3">Date</th>
-              <th className="px-5 py-3">Check In</th>
-              <th className="px-5 py-3">Check Out</th>
-              <th className="px-5 py-3">Working Duration</th>
-              <th className="px-5 py-3">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800/60">
-            {loading ? (
-              <tr>
-                <td colSpan={isHr ? 6 : 5} className="px-5 py-8 text-center text-zinc-500">
-                  Loading attendance records...
-                </td>
-              </tr>
-            ) : records.length > 0 ? (
-              records.map((rec) => (
-                <tr key={rec.id} className="hover:bg-zinc-900/90 transition">
-                  {isHr && <td className="px-5 py-3.5 font-mono font-semibold text-purple-300">{rec.employee_id}</td>}
-                  <td className="px-5 py-3.5 font-mono font-medium text-white">{rec.date}</td>
-                  <td className="px-5 py-3.5 text-zinc-300">
-                    {rec.check_in
-                      ? new Date(rec.check_in).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                      : "-"}
-                  </td>
-                  <td className="px-5 py-3.5 text-zinc-300">
-                    {rec.check_out
-                      ? new Date(rec.check_out).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                      : "-"}
-                  </td>
-                  <td className="px-5 py-3.5 font-mono text-purple-400 font-semibold">
-                    {rec.work_hours || 0} hrs
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
-                        rec.status === "present"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                          : rec.status === "checked-in"
-                          ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                          : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                      }`}
-                    >
-                      {rec.status.toUpperCase()}
-                    </span>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={isHr ? 6 : 5} className="px-5 py-8 text-center text-zinc-500">
-                  No attendance records logged yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            {/* Toolbar controls */}
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Search input */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Search Employee / ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="bg-zinc-950 border border-zinc-800 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-purple-600 w-48"
+                />
+              </div>
+
+              {/* Date navigation */}
+              <div className="flex items-center space-x-1.5 bg-zinc-900/60 p-1 border border-zinc-800 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => handleAdjustDate(-1)}
+                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white px-2.5 py-1 text-xs rounded transition font-mono cursor-pointer font-bold"
+                >
+                  ←
+                </button>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="bg-transparent text-white text-xs border-none outline-none px-1.5 py-0.5 focus:ring-0 font-medium"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleAdjustDate(1)}
+                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white px-2.5 py-1 text-xs rounded transition font-mono cursor-pointer font-bold"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Table display */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 overflow-hidden shadow-md">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-zinc-300 min-w-[700px]">
+                <thead className="bg-zinc-950 text-zinc-500 uppercase tracking-wider text-[10px] border-b border-zinc-800">
+                  <tr>
+                    <th className="px-5 py-3">Employee</th>
+                    <th className="px-5 py-3">Login ID</th>
+                    <th className="px-5 py-3">Check In</th>
+                    <th className="px-5 py-3">Check Out</th>
+                    <th className="px-5 py-3">Work Hours</th>
+                    <th className="px-5 py-3">Extra Hours</th>
+                    <th className="px-5 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-850">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-12 text-center text-zinc-500">
+                        <div className="flex flex-col items-center space-y-2">
+                          <svg className="animate-spin h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          <span>Loading employee attendance...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : error ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-8 text-center text-rose-400 font-semibold">
+                        {error}
+                      </td>
+                    </tr>
+                  ) : hrRecords.length > 0 ? (
+                    hrRecords.map((rec) => {
+                      const extraHrs = Math.max(0, rec.work_hours - 8.0);
+                      return (
+                        <tr key={rec.id} className="hover:bg-zinc-900/40 transition">
+                          <td className="px-5 py-3.5">
+                            <div className="font-semibold text-white">{rec.full_name}</div>
+                            <div className="text-[10px] text-zinc-500 mt-0.5">{rec.position} • {rec.department}</div>
+                          </td>
+                          <td className="px-5 py-3.5 font-mono font-medium text-zinc-400">
+                            {rec.employee_id}
+                          </td>
+                          <td className="px-5 py-3.5 text-zinc-200">
+                            {formatTime(rec.check_in)}
+                          </td>
+                          <td className="px-5 py-3.5 text-zinc-200">
+                            {formatTime(rec.check_out)}
+                          </td>
+                          <td className="px-5 py-3.5 font-mono text-zinc-200">
+                            {rec.work_hours > 0 ? `${rec.work_hours.toFixed(2)} hrs` : "-"}
+                          </td>
+                          <td className="px-5 py-3.5 font-mono text-purple-400 font-semibold">
+                            {extraHrs > 0 ? `+${extraHrs.toFixed(2)} hrs` : "-"}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <span className={`inline-flex rounded px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase ${getStatusBadgeClass(rec.status)}`}>
+                              {rec.status}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-12 text-center text-zinc-500">
+                        No attendance records found for this date.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------- */}
+      {/* EMPLOYEE PERSONAL ATTENDANCE VIEW */}
+      {/* ---------------------------------------------------- */}
+      {!isHr && (
+        <div className="space-y-6">
+          {/* Summary widgets at the top */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-850 pb-4">
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-white uppercase tracking-wide">
+                My Attendance
+              </h1>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Track your personal check-ins, working days, and payable payroll stats.
+              </p>
+            </div>
+
+            {/* Month Picker */}
+            <div className="flex items-center space-x-2 bg-zinc-900/60 px-3 py-1.5 border border-zinc-800 rounded-lg shrink-0">
+              <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Select Month</span>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-transparent text-white text-xs border-none outline-none focus:ring-0 font-semibold cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Cards Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4.5 shadow-sm space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Days Present</span>
+              <strong className="text-2xl font-bold text-emerald-400 block font-mono">
+                {loading ? "-" : summary?.daysPresent || 0}
+              </strong>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4.5 shadow-sm space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Leaves Count</span>
+              <strong className="text-2xl font-bold text-blue-400 block font-mono">
+                {loading ? "-" : summary?.leavesCount || 0}
+              </strong>
+            </div>
+
+            <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4.5 shadow-sm space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Total Weekdays</span>
+              <strong className="text-2xl font-bold text-zinc-300 block font-mono">
+                {loading ? "-" : summary?.totalWorkingDays || 0}
+              </strong>
+            </div>
+
+            <div className="rounded-xl border border-purple-500/10 bg-purple-950/5 p-4.5 shadow-sm space-y-1 border-t-2 border-t-purple-500">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-purple-400">Payable Days</span>
+              <strong className="text-2xl font-bold text-white block font-mono">
+                {loading ? "-" : summary?.payableDays || 0}
+              </strong>
+            </div>
+          </div>
+
+          {/* Attendance History Calendar Table */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 overflow-hidden shadow-md">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-zinc-300 min-w-[600px]">
+                <thead className="bg-zinc-950 text-zinc-500 uppercase tracking-wider text-[10px] border-b border-zinc-800">
+                  <tr>
+                    <th className="px-5 py-3">Date</th>
+                    <th className="px-5 py-3">Check In</th>
+                    <th className="px-5 py-3">Check Out</th>
+                    <th className="px-5 py-3">Work Hours</th>
+                    <th className="px-5 py-3">Extra Hours</th>
+                    <th className="px-5 py-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-850">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-12 text-center text-zinc-500">
+                        <div className="flex flex-col items-center space-y-2">
+                          <svg className="animate-spin h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                          <span>Loading personal calendar history...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : error ? (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-8 text-center text-rose-400 font-semibold">
+                        {error}
+                      </td>
+                    </tr>
+                  ) : employeeRecords.length > 0 ? (
+                    employeeRecords.map((rec, index) => (
+                      <tr key={index} className="hover:bg-zinc-900/40 transition">
+                        <td className="px-5 py-3.5 font-mono font-medium text-white">
+                          {formatDateLabel(rec.date)}
+                        </td>
+                        <td className="px-5 py-3.5 text-zinc-200">
+                          {formatTime(rec.check_in)}
+                        </td>
+                        <td className="px-5 py-3.5 text-zinc-200">
+                          {formatTime(rec.check_out)}
+                        </td>
+                        <td className="px-5 py-3.5 font-mono text-zinc-200">
+                          {rec.work_hours > 0 ? `${rec.work_hours.toFixed(2)} hrs` : "-"}
+                        </td>
+                        <td className="px-5 py-3.5 font-mono text-purple-400 font-semibold">
+                          {rec.extra_hours > 0 ? `+${rec.extra_hours.toFixed(2)} hrs` : "-"}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className={`inline-flex rounded px-2.5 py-0.5 text-[9px] font-bold tracking-wider uppercase ${getStatusBadgeClass(rec.status)}`}>
+                            {rec.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-12 text-center text-zinc-500">
+                        No calendar records logged for this month.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
