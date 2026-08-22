@@ -946,17 +946,27 @@ async function deductLeaveBalance(userId, employeeId, leaveType, daysToDeduct) {
 
   const year = new Date().getFullYear();
   try {
-    const balance = await getOrCreateLeaveBalance(userId, employeeId, normalizedType, year);
-    const newUsed = (balance.used_days || 0) + daysToDeduct;
-    const { error } = await supabaseAdmin
+    const { data: balance } = await supabaseAdmin
       .from('leave_balances')
-      .update({ used_days: newUsed, updated_at: new Date().toISOString() })
+      .select('*')
       .eq('user_id', userId)
       .eq('leave_type', normalizedType)
-      .eq('year', year);
-    if (error) console.error('deductLeaveBalance update error:', error.message);
+      .eq('year', year)
+      .maybeSingle();
+
+    if (balance) {
+      const newUsed = (balance.used_days || 0) + daysToDeduct;
+      await supabaseAdmin
+        .from('leave_balances')
+        .update({ used_days: newUsed, updated_at: new Date().toISOString() })
+        .eq('id', balance.id);
+    }
   } catch (e) {
     console.error('deductLeaveBalance error:', e.message);
+  }
+  const memBal = memoryStore.leaveBalances.find(b => (b.user_id === userId || b.employee_id === employeeId) && (b.leave_type === normalizedType || b.leave_type === leaveType));
+  if (memBal) {
+    memBal.used_days = (memBal.used_days || 0) + daysToDeduct;
   }
 }
 
@@ -970,16 +980,27 @@ async function restoreLeaveBalance(userId, employeeId, leaveType, daysToRestore)
 
   const year = new Date().getFullYear();
   try {
-    const balance = await getOrCreateLeaveBalance(userId, employeeId, normalizedType, year);
-    const newUsed = Math.max(0, (balance.used_days || 0) - daysToRestore);
-    await supabaseAdmin
+    const { data: balance } = await supabaseAdmin
       .from('leave_balances')
-      .update({ used_days: newUsed, updated_at: new Date().toISOString() })
+      .select('*')
       .eq('user_id', userId)
       .eq('leave_type', normalizedType)
-      .eq('year', year);
+      .eq('year', year)
+      .maybeSingle();
+
+    if (balance) {
+      const newUsed = Math.max(0, (balance.used_days || 0) - daysToRestore);
+      await supabaseAdmin
+        .from('leave_balances')
+        .update({ used_days: newUsed, updated_at: new Date().toISOString() })
+        .eq('id', balance.id);
+    }
   } catch (e) {
     console.error('restoreLeaveBalance error:', e.message);
+  }
+  const memBal = memoryStore.leaveBalances.find(b => (b.user_id === userId || b.employee_id === employeeId) && (b.leave_type === normalizedType || b.leave_type === leaveType));
+  if (memBal) {
+    memBal.used_days = Math.max(0, (memBal.used_days || 0) - daysToRestore);
   }
 }
 
@@ -1104,6 +1125,26 @@ async function upsertAttendanceForLeave(userId, employeeId, startDate, endDate) 
       } catch (e) {
         console.error(`upsertAttendanceForLeave error for ${dateStr}:`, e.message);
       }
+
+      // MemoryStore fallback sync
+      let memAtt = memoryStore.attendance.find(a => (a.user_id === userId || a.employee_id === employeeId) && a.date === dateStr);
+      if (memAtt) {
+        if (memAtt.status !== 'checked-in') {
+          memAtt.status = 'leave';
+        }
+      } else {
+        memoryStore.attendance.push({
+          id: `att-leave-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+          user_id: userId,
+          employee_id: employeeId,
+          date: dateStr,
+          check_in: null,
+          check_out: null,
+          work_hours: 0,
+          status: 'leave',
+          created_at: new Date().toISOString()
+        });
+      }
     }
     current.setUTCDate(current.getUTCDate() + 1);
   }
@@ -1131,6 +1172,12 @@ async function revertAttendanceForLeave(userId, startDate, endDate) {
       } catch (e) {
         console.error(`revertAttendanceForLeave error for ${dateStr}:`, e.message);
       }
+
+      // MemoryStore fallback sync
+      let memAtt = memoryStore.attendance.find(a => a.user_id === userId && a.date === dateStr && a.status === 'leave');
+      if (memAtt) {
+        memAtt.status = 'absent';
+      }
     }
     current.setUTCDate(current.getUTCDate() + 1);
   }
@@ -1147,7 +1194,7 @@ async function getAllLeavesWithProfiles(search, companyCode) {
       .select('*, profiles:user_id(id, employee_id, full_name, email, department, position, avatar_url, company_code)')
       .order('applied_at', { ascending: false });
 
-    if (!error && data) {
+    if (!error && data && data.length > 0) {
       let results = data;
       // Filter by company_code if provided
       if (companyCode) {

@@ -233,6 +233,7 @@ function BalanceCards({ balances }: { balances: LeaveBalance[] }) {
 export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRefresh }: TimeOffModuleProps) {
   // Tab state (HR only)
   const [hrTab, setHrTab] = useState<"requests" | "allocation">("requests");
+  const [hrStatusFilter, setHrStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("all");
 
   // Data
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -436,13 +437,16 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
   // --------------------------------------------------------
   // APPROVE / REJECT
   // --------------------------------------------------------
-  const handleReview = async (leaveId: string, status: "approved" | "rejected") => {
+  // --------------------------------------------------------
+  // APPROVE / REJECT
+  // --------------------------------------------------------
+  const handleReview = async (leaveId: string, status: "approved" | "rejected", comments = "") => {
     setActionLoading(leaveId);
     try {
       const res = await fetch(`${API_BASE}/api/leaves/status`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leaveId, status, comments: reviewComment, reviewerId: userId }),
+        body: JSON.stringify({ leaveId, status, comments, reviewerId: userId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Action failed.");
@@ -490,16 +494,16 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
   const RequestsTable = ({ rows }: { rows: LeaveRequest[] }) => (
     <div className="rounded-md border border-zinc-800 bg-zinc-900/60 overflow-hidden shadow-sm">
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-zinc-300 min-w-[640px]">
+        <table className="w-full text-left text-xs text-zinc-300 min-w-[750px]">
           <thead className="bg-zinc-950 text-zinc-500 uppercase tracking-wider text-[10px] border-b border-zinc-800">
             <tr>
               <th className="px-4 py-3">Employee</th>
               <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3">Start Date</th>
-              <th className="px-4 py-3">End Date</th>
+              <th className="px-4 py-3">Dates</th>
               <th className="px-4 py-3">Days</th>
+              <th className="px-4 py-3">Reason</th>
               <th className="px-4 py-3">Status</th>
-              {isHr && <th className="px-4 py-3 text-right">Actions</th>}
+              {isHr && <th className="px-4 py-3 text-right min-w-[180px]">Actions</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800/50">
@@ -509,53 +513,92 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                   No time-off requests found.
                 </td>
               </tr>
-            ) : rows.map(req => (
-              <tr key={req.id} className="hover:bg-zinc-900/80 transition group">
-                <td className="px-4 py-3.5">
-                  <div className="font-semibold text-white text-[11px]">
-                    {req.profiles?.full_name || req.employee_id}
-                  </div>
-                  <div className="text-zinc-500 text-[10px] font-mono">{req.employee_id}</div>
-                </td>
-                <td className={`px-4 py-3.5 font-semibold text-[11px] ${leaveTypeColor(req.leave_type)}`}>
-                  {req.leave_type}
-                </td>
-                <td className="px-4 py-3.5 text-zinc-400 font-mono text-[11px]">{formatDate(req.start_date)}</td>
-                <td className="px-4 py-3.5 text-zinc-400 font-mono text-[11px]">{formatDate(req.end_date)}</td>
-                <td className="px-4 py-3.5 font-bold text-white">{req.days_count}d</td>
-                <td className="px-4 py-3.5">
-                  <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${statusColor(req.status)}`}>
-                    {req.status}
-                  </span>
-                </td>
-                {isHr && (
-                  <td className="px-4 py-3.5 text-right">
-                    {req.status === "pending" ? (
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => { setReviewModal(req); setReviewComment(""); }}
-                          disabled={!!actionLoading}
-                          className="rounded px-3 py-1 text-[10px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition cursor-pointer disabled:opacity-40"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => { setReviewModal(req); setReviewComment(""); }}
-                          disabled={!!actionLoading}
-                          className="rounded px-3 py-1 text-[10px] font-semibold border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition cursor-pointer disabled:opacity-40"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-[10px] text-zinc-600 capitalize">{req.status}</span>
+            ) : rows.map(req => {
+              const normStatus = (req.status || "").toLowerCase();
+              const isPending = normStatus === "pending";
+              const isLoadingThis = actionLoading === req.id;
+
+              return (
+                <tr key={req.id} className="hover:bg-zinc-900/80 transition group">
+                  <td className="px-4 py-3.5">
+                    <div className="font-semibold text-white text-[11px]">
+                      {req.profiles?.full_name || req.employee_id}
+                    </div>
+                    <div className="text-zinc-500 text-[10px] font-mono">{req.employee_id}</div>
+                  </td>
+                  <td className={`px-4 py-3.5 font-semibold text-[11px] ${leaveTypeColor(req.leave_type)}`}>
+                    {req.leave_type}
+                  </td>
+                  <td className="px-4 py-3.5 text-zinc-400 font-mono text-[11px]">
+                    {formatDate(req.start_date)} → {formatDate(req.end_date)}
+                  </td>
+                  <td className="px-4 py-3.5 font-bold text-white">{req.days_count}d</td>
+                  <td className="px-4 py-3.5 text-zinc-300 max-w-[180px]">
+                    <div className="truncate text-[11px]" title={req.reason}>{req.reason || "—"}</div>
+                    {req.attachment_url && (
+                      <a
+                        href={req.attachment_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] text-purple-400 hover:underline inline-flex items-center gap-1 mt-0.5"
+                      >
+                        📎 View Document
+                      </a>
                     )}
                   </td>
-                )}
-              </tr>
-            ))}
+                  <td className="px-4 py-3.5">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold capitalize ${statusColor(normStatus)}`}>
+                      {normStatus}
+                    </span>
+                  </td>
+                  {isHr && (
+                    <td className="px-4 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {isPending ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleReview(req.id, "approved")}
+                              disabled={isLoadingThis}
+                              className="rounded px-2.5 py-1 text-[10px] font-bold border border-emerald-500/40 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 transition cursor-pointer disabled:opacity-40"
+                              title="Accept Leave Request"
+                            >
+                              {isLoadingThis ? "..." : "✓ Accept"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleReview(req.id, "rejected")}
+                              disabled={isLoadingThis}
+                              className="rounded px-2.5 py-1 text-[10px] font-bold border border-red-500/40 bg-red-600/20 hover:bg-red-600/40 text-red-400 transition cursor-pointer disabled:opacity-40"
+                              title="Reject Leave Request"
+                            >
+                              {isLoadingThis ? "..." : "✕ Reject"}
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => { setReviewModal(req); setReviewComment(req.reviewer_comments || ""); }}
+                            className="rounded px-2 py-1 text-[10px] font-medium border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition cursor-pointer"
+                            title="Re-review or edit status"
+                          >
+                            Edit Status
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => { setReviewModal(req); setReviewComment(req.reviewer_comments || ""); }}
+                          className="rounded px-2 py-1 text-[10px] font-medium border border-zinc-800 bg-zinc-950 hover:bg-zinc-850 text-zinc-400 hover:text-white transition cursor-pointer"
+                          title="View Details & Notes"
+                        >
+                          Details
+                        </button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -638,30 +681,90 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
         </div>
 
         {/* ── TIME OFF TAB ── */}
-        {hrTab === "requests" && (
-          <div className="space-y-4">
-            {/* Search */}
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1 max-w-sm">
-                <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input
-                  type="text"
-                  placeholder="Search by name, ID or email..."
-                  value={search}
-                  onChange={e => handleSearch(e.target.value)}
-                  className="w-full rounded-md border border-zinc-800 bg-zinc-900/60 pl-8 pr-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-purple-500 focus:outline-none"
-                />
-              </div>
-              <div className="text-[11px] text-zinc-500">
-                {leaveRequests.length} request{leaveRequests.length !== 1 ? "s" : ""}
-              </div>
-            </div>
+        {hrTab === "requests" && (() => {
+          const pendingCount = leaveRequests.filter(r => (r.status || "").toLowerCase() === "pending").length;
+          const approvedCount = leaveRequests.filter(r => (r.status || "").toLowerCase() === "approved").length;
+          const rejectedCount = leaveRequests.filter(r => (r.status || "").toLowerCase() === "rejected").length;
 
-            <RequestsTable rows={leaveRequests} />
-          </div>
-        )}
+          const filteredRows = leaveRequests.filter(req => {
+            if (hrStatusFilter === "all") return true;
+            return (req.status || "").toLowerCase() === hrStatusFilter;
+          });
+
+          return (
+            <div className="space-y-4">
+              {/* Filter Pills & Search */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                {/* Status Filter Pills */}
+                <div className="flex flex-wrap items-center gap-1.5 bg-zinc-950 border border-zinc-800 p-1 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setHrStatusFilter("all")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${
+                      hrStatusFilter === "all" ? "bg-purple-600 text-white shadow" : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    All ({leaveRequests.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHrStatusFilter("pending")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5 ${
+                      hrStatusFilter === "pending"
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    <span>Pending</span>
+                    {pendingCount > 0 && (
+                      <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-amber-500/30 text-amber-200">
+                        {pendingCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHrStatusFilter("approved")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${
+                      hrStatusFilter === "approved"
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    Approved ({approvedCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setHrStatusFilter("rejected")}
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${
+                      hrStatusFilter === "rejected"
+                        ? "bg-red-500/20 text-red-300 border border-red-500/40 shadow"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    Rejected ({rejectedCount})
+                  </button>
+                </div>
+
+                {/* Search Input */}
+                <div className="relative flex-1 max-w-sm">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search employee / ID..."
+                    value={search}
+                    onChange={e => handleSearch(e.target.value)}
+                    className="w-full rounded-md border border-zinc-800 bg-zinc-900/60 pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <RequestsTable rows={filteredRows} />
+            </div>
+          );
+        })()}
 
         {/* ── ALLOCATION TAB ── */}
         {hrTab === "allocation" && (

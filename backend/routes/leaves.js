@@ -18,6 +18,7 @@ const {
   upsertAttendanceForLeave,
   revertAttendanceForLeave,
   getProfile,
+  memoryStore,
 } = require('../services/store');
 
 // Multer: memory storage for temporary file handling before Supabase upload
@@ -188,6 +189,10 @@ router.put('/status', async (req, res) => {
     }
 
     if (!existingLeave) {
+      existingLeave = memoryStore.leaveRequests.find(l => l.id === leaveId);
+    }
+
+    if (!existingLeave) {
       return res.status(404).json({ error: 'Leave request not found.' });
     }
 
@@ -203,46 +208,63 @@ router.put('/status', async (req, res) => {
     if (normalizedStatus === 'approved') {
       // Deduct balance (only if not already approved before)
       if (existingLeave.status !== 'approved') {
-        await deductLeaveBalance(
-          existingLeave.user_id,
-          existingLeave.employee_id,
-          existingLeave.leave_type,
-          existingLeave.days_count
-        );
-        // Mark attendance as 'leave' for the date range
-        await upsertAttendanceForLeave(
-          existingLeave.user_id,
-          existingLeave.employee_id,
-          existingLeave.start_date,
-          existingLeave.end_date
-        );
+        try {
+          await deductLeaveBalance(
+            existingLeave.user_id,
+            existingLeave.employee_id,
+            existingLeave.leave_type,
+            existingLeave.days_count
+          );
+        } catch (e) {
+          console.error('deductLeaveBalance error:', e.message);
+        }
+
+        try {
+          // Mark attendance as 'leave' for the date range
+          await upsertAttendanceForLeave(
+            existingLeave.user_id,
+            existingLeave.employee_id,
+            existingLeave.start_date,
+            existingLeave.end_date
+          );
+        } catch (e) {
+          console.error('upsertAttendanceForLeave error:', e.message);
+        }
       }
     } else if (normalizedStatus === 'rejected') {
       // If it was previously approved, restore the balance
       if (existingLeave.status === 'approved') {
-        await restoreLeaveBalance(
-          existingLeave.user_id,
-          existingLeave.employee_id,
-          existingLeave.leave_type,
-          existingLeave.days_count
-        );
-        // Revert attendance records back to absent
-        await revertAttendanceForLeave(
-          existingLeave.user_id,
-          existingLeave.start_date,
-          existingLeave.end_date
-        );
+        try {
+          await restoreLeaveBalance(
+            existingLeave.user_id,
+            existingLeave.employee_id,
+            existingLeave.leave_type,
+            existingLeave.days_count
+          );
+        } catch (e) {
+          console.error('restoreLeaveBalance error:', e.message);
+        }
+
+        try {
+          // Revert attendance records back to absent
+          await revertAttendanceForLeave(
+            existingLeave.user_id,
+            existingLeave.start_date,
+            existingLeave.end_date
+          );
+        } catch (e) {
+          console.error('revertAttendanceForLeave error:', e.message);
+        }
       }
-      // If it was pending → rejected, no balance change needed
     }
 
     return res.status(200).json({
       message: `Leave request ${normalizedStatus} successfully.`,
-      leaveRequest: result.data,
+      leaveRequest: result?.data || existingLeave,
     });
   } catch (err) {
     console.error('Error updating leave status:', err);
-    return res.status(500).json({ error: 'Failed to update leave status.' });
+    return res.status(500).json({ error: err.message || 'Failed to update leave status.' });
   }
 });
 
