@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export default function SignUpPage() {
+  const router = useRouter();
   const [employeeId, setEmployeeId] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -113,14 +115,13 @@ export default function SignUpPage() {
         throw new Error(data.error || "Something went wrong. Please try again.");
       }
 
-      setSuccessMsg(
-        data.message || "Account created successfully. Please verify your email before signing in."
-      );
-      // Clear inputs
-      setEmployeeId("");
-      setEmail("");
-      setPassword("");
-      setConfirmPassword("");
+      // Save user details to localStorage to simulate a session
+      if (data.user) {
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
+      }
+
+      // Redirect to dashboard
+      router.push("/dashboard");
     } catch (err: any) {
       setErrorMsg(err.message || "Failed to register. Please check your network connection.");
     } finally {
