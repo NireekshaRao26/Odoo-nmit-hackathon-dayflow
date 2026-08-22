@@ -3,6 +3,11 @@ const cors = require('cors');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
+const profileRoutes = require('./routes/profile');
+const attendanceRoutes = require('./routes/attendance');
+const leavesRoutes = require('./routes/leaves');
+const adminRoutes = require('./routes/admin');
+const activityRoutes = require('./routes/activity');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -19,6 +24,11 @@ app.use(express.json());
 
 // Register API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/leaves', leavesRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/activity', activityRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {
