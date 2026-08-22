@@ -2,6 +2,8 @@ const { supabaseAdmin } = require('../config/supabase');
 
 // Memory storage fallback
 const memoryStore = {
+  privateInfo: [],
+  salaryInfo: [],
   profiles: [
     {
       id: 'emp-001-uuid',
@@ -629,6 +631,131 @@ async function getProfileByLoginIdOrEmail(identifier) {
   ) || null;
 }
 
+// Get Private Info
+async function getPrivateInfo(userId) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('private_info')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!error && data) return data;
+  } catch (e) {
+    console.error('getPrivateInfo DB error:', e);
+  }
+
+  let info = memoryStore.privateInfo.find(p => p.id === userId);
+  if (!info) {
+    info = {
+      id: userId,
+      dob: null,
+      address: '',
+      nationality: '',
+      personal_email: '',
+      gender: '',
+      marital_status: '',
+      joining_date: new Date().toISOString().split('T')[0],
+      bank_name: '',
+      bank_account: '',
+      ifsc_code: '',
+      pan_number: '',
+      uan_number: '',
+      employee_code: ''
+    };
+    memoryStore.privateInfo.push(info);
+  }
+  return info;
+}
+
+// Update Private Info
+async function updatePrivateInfo(userId, updateFields) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('private_info')
+      .upsert({ id: userId, ...updateFields, updated_at: new Date().toISOString() })
+      .select()
+      .maybeSingle();
+    if (!error && data) return data;
+  } catch (e) {
+    console.error('updatePrivateInfo DB error:', e);
+  }
+
+  let info = memoryStore.privateInfo.find(p => p.id === userId);
+  if (!info) {
+    info = { id: userId, ...updateFields };
+    memoryStore.privateInfo.push(info);
+  } else {
+    Object.assign(info, updateFields);
+  }
+  return info;
+}
+
+// Get Salary Info
+async function getSalaryInfo(userId) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('salary_info')
+      .select('*')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!error && data) return data;
+  } catch (e) {
+    console.error('getSalaryInfo DB error:', e);
+  }
+
+  let salary = memoryStore.salaryInfo.find(s => s.id === userId);
+  if (!salary) {
+    salary = {
+      id: userId,
+      wage_type: 'Fixed Wage',
+      monthly_wage: 0,
+      yearly_wage: 0,
+      working_days_per_week: 5,
+      break_hours: 1,
+      pf_employee_rate: 12,
+      pf_employer_rate: 12,
+      professional_tax: 200,
+      basic_salary_type: 'percentage',
+      basic_salary_value: 50,
+      hra_type: 'percentage',
+      hra_value: 50,
+      standard_allowance_type: 'fixed',
+      standard_allowance_value: 0,
+      performance_bonus_type: 'fixed',
+      performance_bonus_value: 0,
+      leave_travel_allowance_type: 'fixed',
+      leave_travel_allowance_value: 0,
+      fixed_allowance_type: 'fixed',
+      fixed_allowance_value: 0
+    };
+    memoryStore.salaryInfo.push(salary);
+  }
+  return salary;
+}
+
+// Update Salary Info
+async function updateSalaryInfo(userId, updateFields) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('salary_info')
+      .upsert({ id: userId, ...updateFields, updated_at: new Date().toISOString() })
+      .select()
+      .maybeSingle();
+    if (!error && data) return data;
+  } catch (e) {
+    console.error('updateSalaryInfo DB error:', e);
+  }
+
+  let salary = memoryStore.salaryInfo.find(s => s.id === userId);
+  if (!salary) {
+    salary = { id: userId, ...updateFields };
+    memoryStore.salaryInfo.push(salary);
+  } else {
+    Object.assign(salary, updateFields);
+  }
+  return salary;
+}
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -646,5 +773,9 @@ module.exports = {
   getUserActivities,
   generateNextLoginId,
   getProfileByLoginIdOrEmail,
+  getPrivateInfo,
+  updatePrivateInfo,
+  getSalaryInfo,
+  updateSalaryInfo,
   memoryStore
 };

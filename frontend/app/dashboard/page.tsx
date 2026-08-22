@@ -10,7 +10,7 @@ import EmployeeGrid from "@/components/dashboard/EmployeeGrid";
 import { EmployeeData } from "@/components/dashboard/EmployeeCard";
 import AttendancePanel from "@/components/dashboard/AttendancePanel";
 import NewEmployeeModal from "@/components/dashboard/NewEmployeeModal";
-import EmployeeDetailModal, { DetailedEmployeeInfo } from "@/components/dashboard/EmployeeDetailModal";
+import UserProfileView from "@/components/dashboard/UserProfileView";
 import AttendanceModule, { AttendanceRecord } from "@/components/dashboard/AttendanceModule";
 import TimeOffModule, { LeaveRequest } from "@/components/dashboard/TimeOffModule";
 import PersonalProfileCard from "@/components/dashboard/PersonalProfileCard";
@@ -66,8 +66,7 @@ export default function DashboardPage() {
 
   // Modals & Popups
   const [showNewEmployeeModal, setShowNewEmployeeModal] = useState(false);
-  const [selectedDetailEmployee, setSelectedDetailEmployee] = useState<DetailedEmployeeInfo | null>(null);
-  const [detailModalTitle, setDetailModalTitle] = useState("Employee Information");
+  const [profileViewEmployeeId, setProfileViewEmployeeId] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
@@ -324,44 +323,11 @@ export default function DashboardPage() {
 
   const handleOpenMyProfile = () => {
     if (!userProfile && !currentUser) return;
-    const info: DetailedEmployeeInfo = {
-      id: userProfile?.id || currentUser!.id,
-      employee_id: userProfile?.employee_id || currentUser!.employeeId,
-      full_name: userProfile?.full_name || currentUser!.fullName || currentUser!.email,
-      email: userProfile?.email || currentUser!.email,
-      department: userProfile?.department || "Engineering",
-      position: userProfile?.position || "Software Engineer",
-      phone: userProfile?.phone || "",
-      role: userProfile?.role || currentUser!.role,
-      avatar_url: userProfile?.avatar_url || "",
-      company_name: userProfile?.company_name || currentUser!.companyName || "Dayflow",
-      joining_year: userProfile?.joining_year || new Date().getFullYear(),
-      status: todayAttendance?.status === "checked-in" ? "present" : "absent",
-    };
-
-    setDetailModalTitle("My Profile Details");
-    setSelectedDetailEmployee(info);
+    setProfileViewEmployeeId(userProfile?.employee_id || currentUser!.employeeId);
   };
 
   const handleCardClick = (emp: EmployeeData) => {
-    const raw = rawEmployees.find((e) => e.employee_id === emp.employee_id);
-    const info: DetailedEmployeeInfo = {
-      id: emp.id,
-      employee_id: emp.employee_id,
-      full_name: emp.full_name,
-      email: emp.email,
-      department: emp.department || raw?.department || "Engineering",
-      position: emp.position || raw?.position || "Software Engineer",
-      phone: emp.phone || raw?.phone || "",
-      role: emp.role || raw?.role || "employee",
-      avatar_url: emp.avatar_url,
-      company_name: raw?.company_name || currentUser?.companyName || "Dayflow",
-      joining_year: raw?.joining_year || new Date().getFullYear(),
-      status: emp.status,
-    };
-
-    setDetailModalTitle("Employee Information");
-    setSelectedDetailEmployee(info);
+    setProfileViewEmployeeId(emp.employee_id);
   };
 
   // Compute Employee Work Status (🟢 Green Present, 🔵 Airplane On Approved Leave, 🟡 Yellow Absent)
@@ -456,7 +422,10 @@ export default function DashboardPage() {
       {/* Top Navbar */}
       <DashboardNavbar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={(tab) => {
+          setProfileViewEmployeeId(null);
+          setActiveTab(tab);
+        }}
         userName={userProfile?.full_name || currentUser.fullName || currentUser.email}
         userEmail={currentUser.email}
         userAvatar={userProfile?.avatar_url}
@@ -469,8 +438,17 @@ export default function DashboardPage() {
       {/* Main Dashboard Layout */}
       <main className="mx-auto max-w-7xl w-full px-4 sm:px-6 lg:px-8 py-8 flex-1 space-y-8">
         
-        {/* TAB 1: EMPLOYEES DASHBOARD (Main Landing Page) */}
-        {activeTab === "employees" && (
+        {profileViewEmployeeId ? (
+          <UserProfileView
+            employeeId={profileViewEmployeeId}
+            viewerId={currentUser.id}
+            viewerRole={currentUser.role}
+            onClose={() => setProfileViewEmployeeId(null)}
+          />
+        ) : (
+          <>
+            {/* TAB 1: EMPLOYEES DASHBOARD (Main Landing Page) */}
+            {activeTab === "employees" && (
           <div className="space-y-8">
             {isHr ? (
               <>
@@ -605,6 +583,8 @@ export default function DashboardPage() {
             onReviewLeave={handleReviewLeave}
             loading={loading}
           />
+            )}
+          </>
         )}
       </main>
 
@@ -627,13 +607,7 @@ export default function DashboardPage() {
         onEmployeeCreated={() => fetchOrgData(currentUser.id, currentUser.employeeId, isHr)}
       />
 
-      {/* View-Only Employee Detail Modal (Card Click & My Profile) */}
-      <EmployeeDetailModal
-        isOpen={selectedDetailEmployee !== null}
-        onClose={() => setSelectedDetailEmployee(null)}
-        employee={selectedDetailEmployee}
-        title={detailModalTitle}
-      />
+
 
       {/* Forced Password Change Modal */}
       {showChangePasswordModal && (
