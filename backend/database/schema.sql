@@ -11,6 +11,18 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   phone TEXT DEFAULT '',
   position TEXT DEFAULT 'Software Engineer',
   avatar_url TEXT DEFAULT '',
+  company_name TEXT DEFAULT 'Odoo India',
+  company_code TEXT DEFAULT 'OI',
+  company_logo TEXT DEFAULT '',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- 1b. Companies Table
+CREATE TABLE IF NOT EXISTS public.companies (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  logo_url TEXT DEFAULT '',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 

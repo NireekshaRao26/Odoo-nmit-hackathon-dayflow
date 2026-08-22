@@ -13,6 +13,9 @@ const memoryStore = {
       phone: '+1 555-0192',
       position: 'Senior Software Engineer',
       avatar_url: '',
+      company_name: 'Odoo India',
+      company_code: 'OI',
+      company_logo: '',
       created_at: new Date(Date.now() - 30 * 86400000).toISOString()
     },
     {
@@ -25,6 +28,9 @@ const memoryStore = {
       phone: '+1 555-0144',
       position: 'Product Designer',
       avatar_url: '',
+      company_name: 'Odoo India',
+      company_code: 'OI',
+      company_logo: '',
       created_at: new Date(Date.now() - 60 * 86400000).toISOString()
     },
     {
@@ -37,6 +43,9 @@ const memoryStore = {
       phone: '+1 555-0100',
       position: 'HR Director',
       avatar_url: '',
+      company_name: 'Odoo India',
+      company_code: 'OI',
+      company_logo: '',
       created_at: new Date(Date.now() - 90 * 86400000).toISOString()
     }
   ],
@@ -495,6 +504,128 @@ async function getUserActivities(userId, employeeId) {
     .slice(0, 10);
 }
 
+/**
+ * Automatically generates a Login ID matching format:
+ * [Company Code][First 2 letters of employee's first name + first 2 letters of employee's last name][Year of Joining][4-digit serial number of joining]
+ * Example: OIJODO20230001
+ */
+async function generateNextLoginId({ companyName, companyCode, fullName, joiningYear }) {
+  let code = companyCode ? companyCode.trim().toUpperCase() : '';
+  if (!code && companyName) {
+    const words = companyName.trim().split(/\s+/).filter(Boolean);
+    if (words.length > 1) {
+      code = words.map(w => w[0]).join('').toUpperCase().substring(0, 4);
+    } else {
+      code = companyName.trim().substring(0, 2).toUpperCase();
+    }
+  }
+  if (!code) code = 'OI';
+
+  const nameParts = (fullName || '').trim().split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] || 'EMPLOYEE';
+  const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : firstName;
+
+  const first2 = firstName.substring(0, 2).toUpperCase().padEnd(2, 'X');
+  const last2 = lastName.substring(0, 2).toUpperCase().padEnd(2, 'X');
+  const initials = `${first2}${last2}`;
+
+  const year = joiningYear ? String(joiningYear) : String(new Date().getFullYear());
+
+  let maxSerial = 0;
+
+  try {
+    const { data: dbProfiles } = await supabaseAdmin
+      .from('profiles')
+      .select('employee_id');
+    if (dbProfiles && dbProfiles.length > 0) {
+      dbProfiles.forEach(p => {
+        if (p.employee_id) {
+          const regex = new RegExp(`^${code}.*?${year}(\\d{4})$`, 'i');
+          const match = p.employee_id.match(regex);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxSerial) maxSerial = num;
+          }
+        }
+      });
+    }
+  } catch (e) {}
+
+  memoryStore.profiles.forEach(p => {
+    if (p.employee_id) {
+      const regex = new RegExp(`^${code}.*?${year}(\\d{4})$`, 'i');
+      const match = p.employee_id.match(regex);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxSerial) maxSerial = num;
+      }
+    }
+  });
+
+  let nextSerial = maxSerial + 1;
+  let candidateId = `${code}${initials}${year}${String(nextSerial).padStart(4, '0')}`;
+  let isUnique = false;
+  let attempts = 0;
+
+  while (!isUnique && attempts < 100) {
+    candidateId = `${code}${initials}${year}${String(nextSerial).padStart(4, '0')}`;
+    let existsInDb = false;
+    try {
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('employee_id', candidateId)
+        .maybeSingle();
+      if (data) existsInDb = true;
+    } catch (e) {}
+
+    const existsInMem = memoryStore.profiles.some(p => p.employee_id && p.employee_id.toUpperCase() === candidateId.toUpperCase());
+
+    if (!existsInDb && !existsInMem) {
+      isUnique = true;
+    } else {
+      nextSerial++;
+      attempts++;
+    }
+  }
+
+  return {
+    loginId: candidateId,
+    companyCode: code,
+    initials,
+    joiningYear: year,
+    serialNumber: String(nextSerial).padStart(4, '0')
+  };
+}
+
+/**
+ * Look up profile by email OR Login ID (employee_id)
+ */
+async function getProfileByLoginIdOrEmail(identifier) {
+  if (!identifier) return null;
+  const str = identifier.trim().toLowerCase();
+
+  try {
+    const { data: byEmail } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .ilike('email', str)
+      .maybeSingle();
+    if (byEmail) return byEmail;
+
+    const { data: byEmpId } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .ilike('employee_id', str)
+      .maybeSingle();
+    if (byEmpId) return byEmpId;
+  } catch (e) {}
+
+  return memoryStore.profiles.find(
+    p => (p.email && p.email.toLowerCase() === str) || (p.employee_id && p.employee_id.toLowerCase() === str)
+  ) || null;
+}
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -510,5 +641,7 @@ module.exports = {
   updateLeaveStatus,
   logActivity,
   getUserActivities,
+  generateNextLoginId,
+  getProfileByLoginIdOrEmail,
   memoryStore
 };

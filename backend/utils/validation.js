@@ -51,9 +51,42 @@ function validateRole(role) {
   return role === 'employee' || role === 'hr';
 }
 
+/**
+ * Validate phone number format
+ * Accepts digits, spaces, dashes, parentheses, optional leading +
+ * @param {string} phone 
+ * @returns {boolean}
+ */
+function validatePhone(phone) {
+  if (!phone || typeof phone !== 'string') return false;
+  const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\./0-9]{6,15}$/;
+  return phoneRegex.test(phone.trim());
+}
+
+/**
+ * Validate company logo (Base64 data URL or HTTP URL)
+ * Max size check ~5MB for base64
+ * @param {string} logo 
+ * @returns {boolean}
+ */
+function validateCompanyLogo(logo) {
+  if (!logo) return true; // Optional logo if empty
+  if (typeof logo !== 'string') return false;
+  if (logo.startsWith('http://') || logo.startsWith('https://')) return true;
+  if (logo.startsWith('data:image/')) {
+    // Basic check for image mime type and size (approx < 7MB base64 char length for 5MB file)
+    const validMime = /^data:image\/(png|jpe?g|webp|svg\+xml|gif);base64,/.test(logo);
+    const sizeOk = logo.length <= 7 * 1024 * 1024;
+    return validMime && sizeOk;
+  }
+  return false;
+}
+
 module.exports = {
   validateEmail,
   validatePassword,
   validateEmployeeId,
-  validateRole
+  validateRole,
+  validatePhone,
+  validateCompanyLogo
 };

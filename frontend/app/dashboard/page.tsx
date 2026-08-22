@@ -103,6 +103,13 @@ export default function DashboardPage() {
   const [showLeaveReviewModal, setShowLeaveReviewModal] = useState(false);
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
 
+  // Change Password State
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [confirmNewPasswordInput, setConfirmNewPasswordInput] = useState("");
+  const [showNewPasswordToggle, setShowNewPasswordToggle] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState("");
+
   // Form Field Inputs
   const [profileForm, setProfileForm] = useState({
     full_name: "",
@@ -319,6 +326,51 @@ export default function DashboardPage() {
     }
   };
 
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePasswordError("");
+
+    if (!newPasswordInput) {
+      setChangePasswordError("New password is required.");
+      return;
+    }
+
+    if (newPasswordInput !== confirmNewPasswordInput) {
+      setChangePasswordError("Passwords do not match.");
+      return;
+    }
+
+    const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+    if (!passRegex.test(newPasswordInput)) {
+      setChangePasswordError("Password must be at least 8 characters long, containing uppercase, lowercase, digit, and special character.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: activeUserId,
+          email: currentUser?.email,
+          newPassword: newPasswordInput,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update password.");
+
+      showToast("Password updated successfully!");
+      setShowChangePasswordModal(false);
+      setNewPasswordInput("");
+      setConfirmNewPasswordInput("");
+    } catch (err: any) {
+      setChangePasswordError(err.message || "Failed to update password.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleApplyLeave = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
@@ -527,6 +579,16 @@ export default function DashboardPage() {
                 </svg>
                 <span>Employee List</span>
               </button>
+
+              <button
+                onClick={() => router.push("/signup")}
+                className="w-full flex items-center space-x-3 rounded-xl px-4 py-3 text-sm font-medium text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/20 transition cursor-pointer"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                <span>+ Register Employee</span>
+              </button>
             </>
           )}
         </nav>
@@ -566,16 +628,40 @@ export default function DashboardPage() {
 
         {/* Top Header */}
         <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md px-8 py-4 flex items-center justify-between sticky top-0 z-20">
-          <div>
-            <h2 className="text-xl font-bold text-white">
-              {switchedEmployee ? `Dashboard - ${switchedEmployee.full_name}` : isHr ? "HR Manager Dashboard" : "Employee Dashboard"}
-            </h2>
-            <p className="text-xs text-zinc-400 hidden sm:block">
-              Logged in as {currentUser.email} • ID: {activeEmployeeId}
-            </p>
+          <div className="flex items-center space-x-4">
+            {profile?.company_logo ? (
+              <img src={profile.company_logo} alt="Company Logo" className="h-10 w-10 rounded-xl object-cover border border-zinc-800" />
+            ) : (
+              <div className="h-10 w-10 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center font-bold text-indigo-400">
+                {(profile?.company_name || currentUser?.companyName || "OI").substring(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <div className="flex items-center space-x-2">
+                <h2 className="text-xl font-bold text-white">
+                  {switchedEmployee ? `Dashboard - ${switchedEmployee.full_name}` : isHr ? "HR Manager Dashboard" : "Employee Dashboard"}
+                </h2>
+                <span className="text-[10px] font-semibold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">
+                  {profile?.company_name || currentUser?.companyName || "Odoo India"}
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 hidden sm:block">
+                Logged in as {currentUser.email} • Login ID: <strong className="text-zinc-200">{activeEmployeeId}</strong>
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowChangePasswordModal(true)}
+              className="rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-1.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition cursor-pointer flex items-center space-x-1.5"
+            >
+              <svg className="h-3.5 w-3.5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              </svg>
+              <span>Change Password</span>
+            </button>
+
             <div className="flex flex-col text-right">
               <span className="text-sm font-semibold text-zinc-200">
                 {profile?.full_name || activeEmployeeId}
@@ -1338,6 +1424,86 @@ export default function DashboardPage() {
                 Approve Request
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: CHANGE PASSWORD */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-5 relative">
+            <button
+              onClick={() => setShowChangePasswordModal(false)}
+              className="absolute right-4 top-4 text-zinc-400 hover:text-white cursor-pointer"
+            >
+              ✕
+            </button>
+            <div>
+              <h3 className="text-xl font-bold text-white">Change Password</h3>
+              <p className="text-xs text-zinc-400 mt-1">Update your system password securely</p>
+            </div>
+
+            {changePasswordError && (
+              <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-400">
+                {changePasswordError}
+              </div>
+            )}
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPasswordToggle ? "text" : "password"}
+                    required
+                    placeholder="••••••••"
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-4 pr-10 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPasswordToggle(!showNewPasswordToggle)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 focus:outline-none cursor-pointer text-xs"
+                  >
+                    {showNewPasswordToggle ? "Hide" : "Show"}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1.5">
+                  Confirm New Password
+                </label>
+                <input
+                  type={showNewPasswordToggle ? "text" : "password"}
+                  required
+                  placeholder="••••••••"
+                  value={confirmNewPasswordInput}
+                  onChange={(e) => setConfirmNewPasswordInput(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowChangePasswordModal(false)}
+                  className="rounded-xl border border-zinc-800 px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 px-5 py-2.5 text-xs font-semibold text-white transition cursor-pointer shadow-md"
+                >
+                  {actionLoading ? "Updating..." : "Update Password"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
