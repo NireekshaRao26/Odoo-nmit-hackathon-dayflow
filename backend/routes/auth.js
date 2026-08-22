@@ -129,4 +129,78 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+/**
+ * @route   POST /api/auth/signin
+ * @desc    Authenticate user & get session
+ * @access  Public
+ */
+router.post('/signin', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // 1. Validate inputs existence
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    if (!validateEmail(email)) {
+      return res.status(400).json({ error: 'Invalid Email format.' });
+    }
+
+    // 2. Sign in via Supabase Auth
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: email.toLowerCase().trim(),
+      password,
+    });
+
+    if (signInError) {
+      console.error('Supabase Auth error during signin:', signInError);
+      // Give descriptive feedback if email is not confirmed
+      if (signInError.message && signInError.message.toLowerCase().includes('confirm')) {
+        return res.status(400).json({ 
+          error: 'Please verify your email address before signing in.' 
+        });
+      }
+      return res.status(400).json({ error: 'Invalid email or password.' });
+    }
+
+    const sessionUser = signInData.user;
+    if (!sessionUser) {
+      return res.status(400).json({ error: 'Login failed, user session not found.' });
+    }
+
+    // 3. Fetch corresponding profile metadata from profiles table
+    const { data: profile, error: profileFetchError } = await supabaseAdmin
+      .from('profiles')
+      .select('employee_id, role')
+      .eq('id', sessionUser.id)
+      .maybeSingle();
+
+    if (profileFetchError) {
+      console.error('Database error fetching profile during signin:', profileFetchError);
+      return res.status(500).json({ error: 'Database verification failed.' });
+    }
+
+    // 4. Respond successfully with user details and tokens
+    return res.status(200).json({
+      message: 'Login successful.',
+      session: {
+        access_token: signInData.session.access_token,
+        refresh_token: signInData.session.refresh_token,
+        expires_at: signInData.session.expires_at
+      },
+      user: {
+        id: sessionUser.id,
+        email: sessionUser.email,
+        employeeId: profile ? profile.employee_id : null,
+        role: profile ? profile.role : 'employee'
+      }
+    });
+
+  } catch (err) {
+    console.error('Server error during signin:', err);
+    return res.status(500).json({ error: 'An unexpected server error occurred. Please try again later.' });
+  }
+});
+
 module.exports = router;

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 interface UserSession {
   id: string;
@@ -12,11 +13,13 @@ interface UserSession {
 }
 
 export default function Home() {
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Check if user is logged in via localStorage
   useEffect(() => {
@@ -30,7 +33,7 @@ export default function Home() {
     }
   }, []);
 
-  const handleMockLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
 
@@ -39,20 +42,47 @@ export default function Home() {
       return;
     }
 
-    // Standard login simulation
-    const mockUser: UserSession = {
-      id: "mock-uuid-12345",
-      employeeId: "EMP-MOCK",
-      email: loginEmail.toLowerCase().trim(),
-      role: "employee",
-    };
+    setIsLoggingIn(true);
 
-    localStorage.setItem("currentUser", JSON.stringify(mockUser));
-    setCurrentUser(mockUser);
-    setShowLoginModal(false);
-    // Clear inputs
-    setLoginEmail("");
-    setLoginPassword("");
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}/api/auth/signin`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: loginEmail.trim(),
+            password: loginPassword,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed. Please check your credentials.");
+      }
+
+      // Save user to localStorage to simulate logged-in session
+      if (data.user) {
+        localStorage.setItem("currentUser", JSON.stringify(data.user));
+        setCurrentUser(data.user);
+      }
+
+      setShowLoginModal(false);
+      // Clear inputs
+      setLoginEmail("");
+      setLoginPassword("");
+      
+      // Redirect to dashboard
+      router.push("/dashboard");
+    } catch (err: any) {
+      setLoginError(err.message || "Failed to log in. Please try again.");
+    } finally {
+      setIsLoggingIn(false);
+    }
   };
 
   const handleSignOut = () => {
@@ -246,7 +276,7 @@ export default function Home() {
               </div>
             )}
 
-            <form onSubmit={handleMockLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
                   Email
@@ -277,9 +307,39 @@ export default function Home() {
 
               <button
                 type="submit"
-                className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 py-3 text-sm font-semibold text-white hover:from-indigo-600 hover:to-violet-750 transition active:scale-[0.98] cursor-pointer"
+                disabled={isLoggingIn}
+                className={`w-full rounded-xl py-3 text-sm font-semibold text-white transition active:scale-[0.98] cursor-pointer flex items-center justify-center space-x-2 ${
+                  isLoggingIn
+                    ? "bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed shadow-none"
+                    : "bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-750"
+                }`}
               >
-                Sign In (Demo Session)
+                {isLoggingIn ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    <span>Signing In...</span>
+                  </>
+                ) : (
+                  <span>Sign In</span>
+                )}
               </button>
             </form>
 
