@@ -80,16 +80,16 @@ function formatDate(dateStr: string): string {
 
 function statusColor(status: string): string {
   switch (status) {
-    case "approved":  return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
-    case "rejected":  return "bg-red-500/10 text-red-400 border border-red-500/20";
-    default:          return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+    case "approved":  return "bg-[#8FBF9F]/10 text-[#8FBF9F] border border-[#8FBF9F]/20";
+    case "rejected":  return "bg-[#D98282]/10 text-[#D98282] border border-[#D98282]/20";
+    default:          return "bg-[#D6AA5C]/10 text-[#D6AA5C] border border-[#D6AA5C]/20";
   }
 }
 
 function leaveTypeColor(lt: string): string {
-  if (lt.includes("Paid")) return "text-purple-300";
-  if (lt.includes("Sick")) return "text-blue-300";
-  return "text-zinc-300";
+  if (lt.includes("Paid")) return "text-[#8FBF9F]";
+  if (lt.includes("Sick")) return "text-[#8C9BB3]";
+  return "text-[#F2F0E8]";
 }
 
 // ============================================================
@@ -132,22 +132,22 @@ function LeaveCalendar({ leaveRequests }: { leaveRequests: LeaveRequest[] }) {
   const days   = Array.from({ length: daysInMonth }, (_, i) => i + 1);
 
   return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-900/60 p-4">
+    <div className="rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)] p-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <button type="button" onClick={prevMonth}
-          className="text-zinc-400 hover:text-white transition px-1 cursor-pointer">‹</button>
-        <span className="text-xs font-bold text-white uppercase tracking-widest">
+          className="text-[#9B9D96] hover:text-[#F2F0E8] transition px-1 cursor-pointer">‹</button>
+        <span className="text-xs font-display font-bold text-[#F2F0E8] uppercase tracking-widest">
           {MONTH_NAMES[viewMonth]} {viewYear}
         </span>
         <button type="button" onClick={nextMonth}
-          className="text-zinc-400 hover:text-white transition px-1 cursor-pointer">›</button>
+          className="text-[#9B9D96] hover:text-[#F2F0E8] transition px-1 cursor-pointer">›</button>
       </div>
 
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
         {DAY_NAMES.map(d => (
-          <div key={d} className="text-center text-[10px] font-semibold text-zinc-500 uppercase py-1">{d}</div>
+          <div key={d} className="text-center text-[10px] font-semibold text-[#686C66] uppercase py-1">{d}</div>
         ))}
       </div>
 
@@ -157,24 +157,24 @@ function LeaveCalendar({ leaveRequests }: { leaveRequests: LeaveRequest[] }) {
         {days.map(day => {
           const status = getDayStatus(day);
           let cls = "flex items-center justify-center text-[11px] rounded h-7 w-full font-medium transition ";
-          if (status === "approved") cls += "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
-          else if (status === "pending") cls += "bg-amber-500/15 text-amber-300 border border-amber-500/25";
-          else if (status === "today") cls += "bg-purple-600/20 text-purple-300 border border-purple-500/40 font-bold";
-          else cls += "text-zinc-400 hover:bg-zinc-800/60";
+          if (status === "approved") cls += "bg-[#8FBF9F]/20 text-[#8FBF9F] border border-[#8FBF9F]/30";
+          else if (status === "pending") cls += "bg-[#D6AA5C]/15 text-[#D6AA5C] border border-[#D6AA5C]/25";
+          else if (status === "today") cls += "bg-[#3F6B4F]/20 text-[#8FBF9F] border border-[#8FBF9F]/40 font-bold";
+          else cls += "text-[#9B9D96] hover:bg-[#222B25]/60";
           return <div key={day} className={cls}>{day}</div>;
         })}
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-4 text-[10px] text-zinc-500">
+      <div className="flex items-center gap-4 mt-4 text-[10px] text-[#9B9D96]">
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-emerald-500/60 inline-block" />Approved
+          <span className="h-2 w-2 rounded-full bg-[#8FBF9F]/60 inline-block" />Approved
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-amber-500/60 inline-block" />Pending
+          <span className="h-2 w-2 rounded-full bg-[#D6AA5C]/60 inline-block" />Pending
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-purple-500/60 inline-block" />Today
+          <span className="h-2 w-2 rounded-full bg-[#3F6B4F]/60 inline-block" />Today
         </span>
       </div>
     </div>
@@ -199,23 +199,23 @@ function BalanceCards({ balances }: { balances: LeaveBalance[] }) {
         const remaining = Math.max(0, allocated - used);
         const pct = allocated > 0 ? Math.round((used / allocated) * 100) : 0;
         return (
-          <div key={lt} className="rounded-md border border-zinc-800 bg-zinc-900/60 p-4 space-y-3">
+          <div key={lt} className="rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)] p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-zinc-400">{lt}</span>
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#9B9D96]">{lt}</span>
               <span className="text-lg">{icons[lt]}</span>
             </div>
             <div>
-              <span className="text-2xl font-bold text-white">{String(remaining).padStart(2, "0")}</span>
-              <span className="text-xs text-zinc-500 ml-1.5">days available</span>
+              <span className="text-2xl font-bold text-[#F2F0E8]">{String(remaining).padStart(2, "0")}</span>
+              <span className="text-xs text-[#686C66] ml-1.5">days available</span>
             </div>
             <div className="space-y-1">
-              <div className="h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-[#0D0F0E] overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-purple-500 transition-all"
+                  className="h-full rounded-full bg-[#3F6B4F] transition-all"
                   style={{ width: `${pct}%` }}
                 />
               </div>
-              <div className="flex justify-between text-[10px] text-zinc-500">
+              <div className="flex justify-between text-[10px] text-[#686C66]">
                 <span>{used} used</span>
                 <span>{allocated} total</span>
               </div>
@@ -492,10 +492,10 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
   // RENDER HELPERS
   // --------------------------------------------------------
   const RequestsTable = ({ rows }: { rows: LeaveRequest[] }) => (
-    <div className="rounded-md border border-zinc-800 bg-zinc-900/60 overflow-hidden shadow-sm">
+    <div className="rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] overflow-hidden shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)]">
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs text-zinc-300 min-w-[750px]">
-          <thead className="bg-zinc-950 text-zinc-500 uppercase tracking-wider text-[10px] border-b border-zinc-800">
+        <table className="w-full text-left text-xs text-[#F2F0E8] min-w-[750px]">
+          <thead className="bg-[#0D0F0E] text-[#686C66] uppercase tracking-wider text-[10px] border-b border-[rgba(242,240,232,0.08)]">
             <tr>
               <th className="px-4 py-3">Employee</th>
               <th className="px-4 py-3">Type</th>
@@ -506,10 +506,10 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
               {isHr && <th className="px-4 py-3 text-right min-w-[180px]">Actions</th>}
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-800/50">
+          <tbody className="divide-y divide-[rgba(242,240,232,0.04)]">
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={isHr ? 7 : 6} className="px-4 py-10 text-center text-zinc-500">
+                <td colSpan={isHr ? 7 : 6} className="px-4 py-10 text-center text-[#9B9D96]">
                   No time-off requests found.
                 </td>
               </tr>
@@ -519,28 +519,28 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
               const isLoadingThis = actionLoading === req.id;
 
               return (
-                <tr key={req.id} className="hover:bg-zinc-900/80 transition group">
+                <tr key={req.id} className="hover:bg-[#141A16] transition group">
                   <td className="px-4 py-3.5">
-                    <div className="font-semibold text-white text-[11px]">
+                    <div className="font-semibold text-[#F2F0E8] text-[11px]">
                       {req.profiles?.full_name || req.employee_id}
                     </div>
-                    <div className="text-zinc-500 text-[10px] font-mono">{req.employee_id}</div>
+                    <div className="text-[#9B9D96] text-[10px] font-mono">{req.employee_id}</div>
                   </td>
                   <td className={`px-4 py-3.5 font-semibold text-[11px] ${leaveTypeColor(req.leave_type)}`}>
                     {req.leave_type}
                   </td>
-                  <td className="px-4 py-3.5 text-zinc-400 font-mono text-[11px]">
+                  <td className="px-4 py-3.5 text-[#9B9D96] font-mono text-[11px]">
                     {formatDate(req.start_date)} → {formatDate(req.end_date)}
                   </td>
-                  <td className="px-4 py-3.5 font-bold text-white">{req.days_count}d</td>
-                  <td className="px-4 py-3.5 text-zinc-300 max-w-[180px]">
+                  <td className="px-4 py-3.5 font-bold text-[#F2F0E8]">{req.days_count}d</td>
+                  <td className="px-4 py-3.5 text-[#F2F0E8] max-w-[180px]">
                     <div className="truncate text-[11px]" title={req.reason}>{req.reason || "—"}</div>
                     {req.attachment_url && (
                       <a
                         href={req.attachment_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-[10px] text-purple-400 hover:underline inline-flex items-center gap-1 mt-0.5"
+                        className="text-[10px] text-[#8FBF9F] hover:underline inline-flex items-center gap-1 mt-0.5"
                       >
                         📎 View Document
                       </a>
@@ -560,7 +560,7 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                               type="button"
                               onClick={() => handleReview(req.id, "approved")}
                               disabled={isLoadingThis}
-                              className="rounded px-2.5 py-1 text-[10px] font-bold border border-emerald-500/40 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 transition cursor-pointer disabled:opacity-40"
+                              className="rounded px-2.5 py-1 text-[10px] font-bold border border-[#8FBF9F]/40 bg-[#3F6B4F]/20 hover:bg-[#3F6B4F]/40 text-[#8FBF9F] transition cursor-pointer disabled:opacity-40"
                               title="Accept Leave Request"
                             >
                               {isLoadingThis ? "..." : "✓ Accept"}
@@ -569,7 +569,7 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                               type="button"
                               onClick={() => handleReview(req.id, "rejected")}
                               disabled={isLoadingThis}
-                              className="rounded px-2.5 py-1 text-[10px] font-bold border border-red-500/40 bg-red-600/20 hover:bg-red-600/40 text-red-400 transition cursor-pointer disabled:opacity-40"
+                              className="rounded px-2.5 py-1 text-[10px] font-bold border border-[#D98282]/40 bg-[#D98282]/20 hover:bg-[#D98282]/40 text-[#D98282] transition cursor-pointer disabled:opacity-40"
                               title="Reject Leave Request"
                             >
                               {isLoadingThis ? "..." : "✕ Reject"}
@@ -579,7 +579,7 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                           <button
                             type="button"
                             onClick={() => { setReviewModal(req); setReviewComment(req.reviewer_comments || ""); }}
-                            className="rounded px-2 py-1 text-[10px] font-medium border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition cursor-pointer"
+                            className="rounded px-2 py-1 text-[10px] font-medium border border-[rgba(242,240,232,0.08)] bg-[#222B25] hover:bg-[#2F523C] text-[#F2F0E8] transition cursor-pointer"
                             title="Re-review or edit status"
                           >
                             Edit Status
@@ -588,7 +588,7 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                         <button
                           type="button"
                           onClick={() => { setReviewModal(req); setReviewComment(req.reviewer_comments || ""); }}
-                          className="rounded px-2 py-1 text-[10px] font-medium border border-zinc-800 bg-zinc-950 hover:bg-zinc-850 text-zinc-400 hover:text-white transition cursor-pointer"
+                          className="rounded px-2 py-1 text-[10px] font-medium border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] hover:bg-[#141A16] text-[#9B9D96] hover:text-[#F2F0E8] transition cursor-pointer"
                           title="View Details & Notes"
                         >
                           Details
@@ -648,20 +648,20 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
     return (
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[rgba(242,240,232,0.04)]">
           <div>
-            <h1 className="text-xl font-bold tracking-tight text-white uppercase tracking-wide">Time Off</h1>
-            <p className="text-xs text-zinc-400 mt-0.5">Review and manage employee leave requests</p>
+            <h1 className="text-xl font-display font-bold tracking-tight text-[#F2F0E8] uppercase tracking-wide">Time Off</h1>
+            <p className="text-xs text-[#9B9D96] mt-0.5">Review and manage employee leave requests</p>
           </div>
           {/* Tabs */}
-          <div className="flex items-center gap-1 bg-zinc-900/60 border border-zinc-800 rounded-md p-1">
+          <div className="flex items-center gap-1 bg-[#1A211C] border border-[rgba(242,240,232,0.08)] rounded-xl p-1">
             <button
               type="button"
               onClick={() => setHrTab("requests")}
               className={`px-4 py-1.5 rounded text-xs font-semibold transition cursor-pointer ${
                 hrTab === "requests"
-                  ? "bg-purple-600 text-white shadow"
-                  : "text-zinc-400 hover:text-white"
+                  ? "bg-[#3F6B4F] text-[#F2F0E8] shadow"
+                  : "text-[#9B9D96] hover:text-[#F2F0E8]"
               }`}
             >
               Time Off
@@ -671,8 +671,8 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
               onClick={() => setHrTab("allocation")}
               className={`px-4 py-1.5 rounded text-xs font-semibold transition cursor-pointer ${
                 hrTab === "allocation"
-                  ? "bg-purple-600 text-white shadow"
-                  : "text-zinc-400 hover:text-white"
+                  ? "bg-[#3F6B4F] text-[#F2F0E8] shadow"
+                  : "text-[#9B9D96] hover:text-[#F2F0E8]"
               }`}
             >
               Allocation
@@ -696,12 +696,12 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
               {/* Filter Pills & Search */}
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 {/* Status Filter Pills */}
-                <div className="flex flex-wrap items-center gap-1.5 bg-zinc-950 border border-zinc-800 p-1 rounded-lg">
+                <div className="flex flex-wrap items-center gap-1.5 bg-[#0D0F0E] border border-[rgba(242,240,232,0.08)] p-1 rounded-xl">
                   <button
                     type="button"
                     onClick={() => setHrStatusFilter("all")}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${
-                      hrStatusFilter === "all" ? "bg-purple-600 text-white shadow" : "text-zinc-400 hover:text-white"
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                      hrStatusFilter === "all" ? "bg-[#3F6B4F] text-[#F2F0E8] shadow" : "text-[#9B9D96] hover:text-[#F2F0E8]"
                     }`}
                   >
                     All ({leaveRequests.length})
@@ -709,15 +709,15 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                   <button
                     type="button"
                     onClick={() => setHrStatusFilter("pending")}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer flex items-center gap-1.5 ${
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
                       hrStatusFilter === "pending"
-                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow"
-                        : "text-zinc-400 hover:text-white"
+                        ? "bg-[#D6AA5C]/20 text-[#D6AA5C] border border-[#D6AA5C]/40 shadow"
+                        : "text-[#9B9D96] hover:text-[#F2F0E8]"
                     }`}
                   >
                     <span>Pending</span>
                     {pendingCount > 0 && (
-                      <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-amber-500/30 text-amber-200">
+                      <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-[#D6AA5C]/30 text-[#D6AA5C]">
                         {pendingCount}
                       </span>
                     )}
@@ -725,10 +725,10 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                   <button
                     type="button"
                     onClick={() => setHrStatusFilter("approved")}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                       hrStatusFilter === "approved"
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow"
-                        : "text-zinc-400 hover:text-white"
+                        ? "bg-[#8FBF9F]/20 text-[#8FBF9F] border border-[#8FBF9F]/40 shadow"
+                        : "text-[#9B9D96] hover:text-[#F2F0E8]"
                     }`}
                   >
                     Approved ({approvedCount})
@@ -736,10 +736,10 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                   <button
                     type="button"
                     onClick={() => setHrStatusFilter("rejected")}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-md transition cursor-pointer ${
+                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition cursor-pointer ${
                       hrStatusFilter === "rejected"
-                        ? "bg-red-500/20 text-red-300 border border-red-500/40 shadow"
-                        : "text-zinc-400 hover:text-white"
+                        ? "bg-[#D98282]/20 text-[#D98282] border border-[#D98282]/40 shadow"
+                        : "text-[#9B9D96] hover:text-[#F2F0E8]"
                     }`}
                   >
                     Rejected ({rejectedCount})
@@ -748,7 +748,7 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
 
                 {/* Search Input */}
                 <div className="relative flex-1 max-w-sm">
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#686C66]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
@@ -756,7 +756,7 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                     placeholder="Search employee / ID..."
                     value={search}
                     onChange={e => handleSearch(e.target.value)}
-                    className="w-full rounded-md border border-zinc-800 bg-zinc-900/60 pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-purple-500 focus:outline-none"
+                    className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] pl-8 pr-3 py-1.5 text-xs text-[#F2F0E8] placeholder-[#686C66] focus:border-[#8FBF9F] focus:outline-none"
                   />
                 </div>
               </div>
@@ -769,18 +769,18 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
         {/* ── ALLOCATION TAB ── */}
         {hrTab === "allocation" && (
           <div className="space-y-4">
-            <p className="text-xs text-zinc-400">
+            <p className="text-xs text-[#9B9D96]">
               Manage annual leave allocations. Click a value to edit.
             </p>
             {Object.keys(groupedBalances).length === 0 ? (
-              <div className="rounded-md border border-zinc-800 bg-zinc-900/60 px-4 py-12 text-center text-zinc-500 text-sm">
+              <div className="rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] px-4 py-12 text-center text-[#686C66] text-sm shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)]">
                 No allocation records found. Leave balances are created automatically when employees submit requests.
               </div>
             ) : (
-              <div className="rounded-md border border-zinc-800 bg-zinc-900/60 overflow-hidden">
+              <div className="rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] overflow-hidden shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)]">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs text-zinc-300 min-w-[640px]">
-                    <thead className="bg-zinc-950 text-zinc-500 uppercase tracking-wider text-[10px] border-b border-zinc-800">
+                  <table className="w-full text-left text-xs text-[#F2F0E8] min-w-[640px]">
+                    <thead className="bg-[#0D0F0E] text-[#686C66] uppercase tracking-wider text-[10px] border-b border-[rgba(242,240,232,0.08)]">
                       <tr>
                         <th className="px-4 py-3">Employee</th>
                         <th className="px-4 py-3">Leave Type</th>
@@ -789,19 +789,19 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                         <th className="px-4 py-3 text-center">Remaining</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-800/50">
+                    <tbody className="divide-y divide-[rgba(242,240,232,0.04)]">
                       {Object.entries(groupedBalances).flatMap(([uid, { profile, balances: bals }]) =>
                         bals.map((b, i) => {
                           const remaining = Math.max(0, b.allocated_days - b.used_days);
                           const isEditing = editingAlloc?.userId === uid && editingAlloc?.leaveType === b.leave_type;
                           return (
-                            <tr key={`${uid}-${b.leave_type}`} className="hover:bg-zinc-900/80 transition">
+                            <tr key={`${uid}-${b.leave_type}`} className="hover:bg-[#141A16] transition">
                               {i === 0 ? (
                                 <td className="px-4 py-3.5" rowSpan={bals.length}>
-                                  <div className="font-semibold text-white text-[11px]">
+                                  <div className="font-semibold text-[#F2F0E8] text-[11px]">
                                     {profile?.full_name || b.employee_id}
                                   </div>
-                                  <div className="text-zinc-500 text-[10px] font-mono">{b.employee_id}</div>
+                                  <div className="text-[#9B9D96] text-[10px] font-mono">{b.employee_id}</div>
                                 </td>
                               ) : null}
                               <td className={`px-4 py-3.5 font-semibold text-[11px] ${leaveTypeColor(b.leave_type)}`}>
@@ -816,20 +816,20 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                                       max={365}
                                       value={editingAlloc!.value}
                                       onChange={e => setEditingAlloc({ ...editingAlloc!, value: e.target.value })}
-                                      className="w-16 rounded border border-purple-500/50 bg-zinc-900 px-2 py-1 text-center text-xs text-white focus:outline-none"
+                                      className="w-16 rounded border border-[#8FBF9F]/50 bg-[#0D0F0E] px-2 py-1 text-center text-xs text-[#F2F0E8] focus:outline-none"
                                     />
                                     <button
                                       type="button"
                                       onClick={handleSaveAlloc}
                                       disabled={allocSaving}
-                                      className="text-emerald-400 hover:text-emerald-300 cursor-pointer text-[10px] font-semibold disabled:opacity-40"
+                                      className="text-[#8FBF9F] hover:text-[#3F6B4F] cursor-pointer text-[10px] font-semibold disabled:opacity-40"
                                     >
                                       {allocSaving ? "…" : "Save"}
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => setEditingAlloc(null)}
-                                      className="text-zinc-500 hover:text-white cursor-pointer text-[10px]"
+                                      className="text-[#686C66] hover:text-[#F2F0E8] cursor-pointer text-[10px]"
                                     >
                                       ✕
                                     </button>
@@ -838,18 +838,18 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                                   <button
                                     type="button"
                                     onClick={() => setEditingAlloc({ userId: uid, leaveType: b.leave_type, value: String(b.allocated_days) })}
-                                    className="font-bold text-white hover:text-purple-400 transition cursor-pointer"
+                                    className="font-bold text-[#F2F0E8] hover:text-[#8FBF9F] transition cursor-pointer"
                                     title="Click to edit"
                                   >
                                     {b.allocated_days}
                                   </button>
                                 )}
                               </td>
-                              <td className="px-4 py-3.5 text-center text-amber-400 font-semibold">
+                              <td className="px-4 py-3.5 text-center text-[#D6AA5C] font-semibold">
                                 {b.used_days}
                               </td>
                               <td className="px-4 py-3.5 text-center">
-                                <span className={`font-bold ${remaining > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                                <span className={`font-bold ${remaining > 0 ? "text-[#8FBF9F]" : "text-[#D98282]"}`}>
                                   {remaining}
                                 </span>
                               </td>
@@ -868,41 +868,41 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
         {/* HR Review Modal */}
         {reviewModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-5 relative">
+            <div className="w-full max-w-md rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] p-6 shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)] space-y-5 relative">
               <button type="button" onClick={() => setReviewModal(null)}
-                className="absolute right-4 top-4 text-zinc-400 hover:text-white transition cursor-pointer text-lg leading-none">
+                className="absolute right-4 top-4 text-[#9B9D96] hover:text-[#F2F0E8] transition cursor-pointer text-lg leading-none">
                 ✕
               </button>
 
               <div>
-                <h3 className="text-base font-bold text-white uppercase tracking-wide">Review Leave Request</h3>
-                <p className="text-xs text-zinc-400 mt-1">
+                <h3 className="text-base font-display font-bold text-[#F2F0E8] uppercase tracking-wide">Review Leave Request</h3>
+                <p className="text-xs text-[#9B9D96] mt-1">
                   {reviewModal.profiles?.full_name || reviewModal.employee_id} · {reviewModal.employee_id}
                 </p>
               </div>
 
-              <div className="rounded bg-zinc-950 border border-zinc-800 p-3 space-y-2 text-xs">
+              <div className="rounded-xl bg-[#0D0F0E] border border-[rgba(242,240,232,0.08)] p-3 space-y-2 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Type</span>
+                  <span className="text-[#686C66]">Type</span>
                   <span className={`font-semibold ${leaveTypeColor(reviewModal.leave_type)}`}>{reviewModal.leave_type}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Period</span>
-                  <span className="text-zinc-200">{formatDate(reviewModal.start_date)} → {formatDate(reviewModal.end_date)}</span>
+                  <span className="text-[#686C66]">Period</span>
+                  <span className="text-[#F2F0E8]">{formatDate(reviewModal.start_date)} → {formatDate(reviewModal.end_date)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Duration</span>
-                  <span className="font-bold text-white">{reviewModal.days_count} working day{reviewModal.days_count !== 1 ? "s" : ""}</span>
+                  <span className="text-[#686C66]">Duration</span>
+                  <span className="font-bold text-[#F2F0E8]">{reviewModal.days_count} working day{reviewModal.days_count !== 1 ? "s" : ""}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-zinc-500">Reason</span>
-                  <span className="text-zinc-200 text-right max-w-[60%]">{reviewModal.reason}</span>
+                  <span className="text-[#686C66]">Reason</span>
+                  <span className="text-[#F2F0E8] text-right max-w-[60%]">{reviewModal.reason}</span>
                 </div>
                 {reviewModal.attachment_url && (
                   <div className="flex justify-between items-center">
-                    <span className="text-zinc-500">Attachment</span>
+                    <span className="text-[#686C66]">Attachment</span>
                     <a href={reviewModal.attachment_url} target="_blank" rel="noopener noreferrer"
-                      className="text-purple-400 hover:text-purple-300 underline text-[10px]">
+                      className="text-[#8FBF9F] hover:text-[#3F6B4F] underline text-[10px]">
                       View Document
                     </a>
                   </div>
@@ -910,7 +910,7 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mb-1.5">
+                <label className="block text-[10px] font-semibold text-[#9B9D96] uppercase tracking-widest mb-1.5">
                   Comment (Optional)
                 </label>
                 <textarea
@@ -918,16 +918,16 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                   placeholder="Add a note for the employee..."
                   value={reviewComment}
                   onChange={e => setReviewComment(e.target.value)}
-                  className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white placeholder-zinc-600 focus:border-purple-500 focus:outline-none resize-none"
+                  className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-3 py-2 text-xs text-[#F2F0E8] placeholder-[#686C66] focus:border-[#8FBF9F] focus:outline-none resize-none"
                 />
               </div>
 
-              <div className="flex gap-3 pt-1 border-t border-zinc-800">
+              <div className="flex gap-3 pt-1 border-t border-[rgba(242,240,232,0.08)]">
                 <button
                   type="button"
                   onClick={() => handleReview(reviewModal.id, "rejected")}
                   disabled={!!actionLoading}
-                  className="flex-1 rounded-md bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 text-red-300 font-semibold py-2 text-xs transition cursor-pointer disabled:opacity-40"
+                  className="flex-1 rounded-xl bg-[#D98282]/20 hover:bg-[#D98282]/40 border border-[#D98282]/40 text-[#D98282] font-semibold py-2 text-xs transition cursor-pointer disabled:opacity-40"
                 >
                   {actionLoading === reviewModal.id ? "Rejecting..." : "Reject"}
                 </button>
@@ -935,7 +935,7 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                   type="button"
                   onClick={() => handleReview(reviewModal.id, "approved")}
                   disabled={!!actionLoading}
-                  className="flex-1 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 text-xs transition shadow cursor-pointer disabled:opacity-40"
+                  className="flex-1 rounded-xl bg-[#3F6B4F] hover:bg-[#2F523C] text-[#F2F0E8] font-semibold py-2 text-xs transition shadow cursor-pointer disabled:opacity-40"
                 >
                   {actionLoading === reviewModal.id ? "Approving..." : "Approve"}
                 </button>
@@ -953,15 +953,15 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-zinc-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[rgba(242,240,232,0.04)]">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-white uppercase tracking-wide">Time Off</h1>
-          <p className="text-xs text-zinc-400 mt-0.5">Manage your leave requests and view balances</p>
+          <h1 className="text-xl font-display font-bold tracking-tight text-[#F2F0E8] uppercase tracking-wide">Time Off</h1>
+          <p className="text-xs text-[#9B9D96] mt-0.5">Manage your leave requests and view balances</p>
         </div>
         <button
           type="button"
           onClick={() => { setShowNewModal(true); setFormError(""); }}
-          className="rounded-md bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white px-5 py-2 text-xs font-semibold transition shadow-md cursor-pointer flex items-center gap-2 self-start sm:self-auto"
+          className="rounded-xl bg-[#3F6B4F] hover:bg-[#2F523C] text-[#F2F0E8] px-5 py-2 text-xs font-semibold transition shadow-md cursor-pointer flex items-center gap-2 self-start sm:self-auto"
         >
           <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -972,7 +972,7 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
 
       {/* Balance Cards */}
       <section>
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-3">Leave Balances</p>
+        <p className="text-[11px] font-semibold uppercase tracking-widest text-[#686C66] mb-3">Leave Balances</p>
         <BalanceCards balances={balances} />
       </section>
 
@@ -980,13 +980,13 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar */}
         <div className="lg:col-span-1">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-3">Leave Calendar</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#686C66] mb-3">Leave Calendar</p>
           <LeaveCalendar leaveRequests={leaveRequests} />
         </div>
 
         {/* Request History */}
         <div className="lg:col-span-2">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-zinc-500 mb-3">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-[#686C66] mb-3">
             My Requests ({leaveRequests.length})
           </p>
           <RequestsTable rows={leaveRequests} />
@@ -996,43 +996,43 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
       {/* ── NEW REQUEST MODAL ── */}
       {showNewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-md border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-5 relative max-h-[90vh] overflow-y-auto">
+          <div className="w-full max-w-lg rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] p-6 shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)] space-y-5 relative max-h-[90vh] overflow-y-auto">
             <button
               type="button"
               onClick={() => { setShowNewModal(false); setFormError(""); setAttachmentFile(null); }}
-              className="absolute right-4 top-4 text-zinc-400 hover:text-white transition cursor-pointer text-lg leading-none"
+              className="absolute right-4 top-4 text-[#9B9D96] hover:text-[#F2F0E8] transition cursor-pointer text-lg leading-none"
             >
               ✕
             </button>
 
             <div>
-              <h3 className="text-base font-bold text-white uppercase tracking-wide">Time Off Type Request</h3>
-              <p className="text-xs text-zinc-400 mt-1">Submit a leave request for HR approval.</p>
+              <h3 className="text-base font-display font-bold text-[#F2F0E8] uppercase tracking-wide">Time Off Type Request</h3>
+              <p className="text-xs text-[#9B9D96] mt-1">Submit a leave request for HR approval.</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Employee (read-only) */}
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mb-1.5">
+                <label className="block text-[10px] font-semibold text-[#9B9D96] uppercase tracking-widest mb-1.5">
                   Employee
                 </label>
                 <input
                   type="text"
                   readOnly
                   value={`${fullName || "You"} (${employeeId})`}
-                  className="w-full rounded-md border border-zinc-800 bg-zinc-950/60 px-3 py-2 text-xs text-zinc-400 cursor-not-allowed"
+                  className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E]/60 px-3 py-2 text-xs text-[#9B9D96] cursor-not-allowed"
                 />
               </div>
 
               {/* Leave Type */}
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mb-1.5">
+                <label className="block text-[10px] font-semibold text-[#9B9D96] uppercase tracking-widest mb-1.5">
                   Time Off Type
                 </label>
                 <select
                   value={form.leaveType}
                   onChange={e => setForm({ ...form, leaveType: e.target.value })}
-                  className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none cursor-pointer"
+                  className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-3 py-2 text-xs text-[#F2F0E8] focus:border-[#8FBF9F] focus:outline-none cursor-pointer"
                 >
                   {LEAVE_TYPES.map(lt => (
                     <option key={lt} value={lt}>{lt}</option>
@@ -1042,49 +1042,49 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
 
               {/* Validity Period */}
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mb-1.5">
+                <label className="block text-[10px] font-semibold text-[#9B9D96] uppercase tracking-widest mb-1.5">
                   Validity Period
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-[10px] text-zinc-500 mb-1">Start Date</p>
+                    <p className="text-[10px] text-[#686C66] mb-1">Start Date</p>
                     <input
                       type="date"
                       required
                       value={form.startDate}
                       onChange={e => setForm({ ...form, startDate: e.target.value })}
-                      className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                      className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-3 py-2 text-xs text-[#F2F0E8] focus:border-[#8FBF9F] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <p className="text-[10px] text-zinc-500 mb-1">End Date</p>
+                    <p className="text-[10px] text-[#686C66] mb-1">End Date</p>
                     <input
                       type="date"
                       required
                       value={form.endDate}
                       min={form.startDate}
                       onChange={e => setForm({ ...form, endDate: e.target.value })}
-                      className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                      className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-3 py-2 text-xs text-[#F2F0E8] focus:border-[#8FBF9F] focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Allocation (auto-calculated) */}
-              <div className="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-3 flex items-center justify-between">
+              <div className="rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-4 py-3 flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Allocation</p>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">Working days (excl. weekends)</p>
+                  <p className="text-[10px] font-semibold text-[#9B9D96] uppercase tracking-widest">Allocation</p>
+                  <p className="text-[10px] text-[#686C66] mt-0.5">Working days (excl. weekends)</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-lg font-bold text-white">{workingDays}</span>
-                  <span className="text-xs text-zinc-500 ml-1">day{workingDays !== 1 ? "s" : ""}</span>
+                  <span className="text-lg font-bold text-[#F2F0E8]">{workingDays}</span>
+                  <span className="text-xs text-[#686C66] ml-1">day{workingDays !== 1 ? "s" : ""}</span>
                 </div>
               </div>
 
               {/* Reason */}
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mb-1.5">
+                <label className="block text-[10px] font-semibold text-[#9B9D96] uppercase tracking-widest mb-1.5">
                   Reason
                 </label>
                 <textarea
@@ -1093,16 +1093,16 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                   placeholder="Briefly describe the reason for your leave..."
                   value={form.reason}
                   onChange={e => setForm({ ...form, reason: e.target.value })}
-                  className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white placeholder-zinc-600 focus:border-purple-500 focus:outline-none resize-none"
+                  className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-3 py-2 text-xs text-[#F2F0E8] placeholder-[#686C66] focus:border-[#8FBF9F] focus:outline-none resize-none"
                 />
               </div>
 
               {/* Attachment */}
               <div>
-                <label className="block text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mb-1.5">
-                  Attachment <span className="text-zinc-600 normal-case font-normal">(optional – required for Sick Leave)</span>
+                <label className="block text-[10px] font-semibold text-[#9B9D96] uppercase tracking-widest mb-1.5">
+                  Attachment <span className="text-[#686C66] normal-case font-normal">(optional – required for Sick Leave)</span>
                 </label>
-                <div className="rounded-md border border-dashed border-zinc-700 bg-zinc-950 px-4 py-4 text-center">
+                <div className="rounded-xl border border-dashed border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-4 py-4 text-center">
                   <input
                     id="attachment-upload"
                     type="file"
@@ -1113,40 +1113,40 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
                   <label htmlFor="attachment-upload" className="cursor-pointer block">
                     {attachmentFile ? (
                       <div className="space-y-1">
-                        <p className="text-xs text-emerald-400 font-semibold">✓ {attachmentFile.name}</p>
-                        <p className="text-[10px] text-zinc-500">{(attachmentFile.size / 1024).toFixed(0)} KB — click to change</p>
+                        <p className="text-xs text-[#8FBF9F] font-semibold">✓ {attachmentFile.name}</p>
+                        <p className="text-[10px] text-[#686C66]">{(attachmentFile.size / 1024).toFixed(0)} KB — click to change</p>
                       </div>
                     ) : (
                       <div className="space-y-1">
-                        <p className="text-xs text-zinc-400">Click to upload a document</p>
-                        <p className="text-[10px] text-zinc-600">JPEG, PNG, PDF · max 5 MB</p>
+                        <p className="text-xs text-[#9B9D96]">Click to upload a document</p>
+                        <p className="text-[10px] text-[#686C66]">JPEG, PNG, PDF · max 5 MB</p>
                       </div>
                     )}
                   </label>
                 </div>
                 {attachmentError && (
-                  <p className="text-[10px] text-red-400 mt-1">{attachmentError}</p>
+                  <p className="text-[10px] text-[#D98282] mt-1">{attachmentError}</p>
                 )}
               </div>
 
               {formError && (
-                <div className="rounded bg-red-950/40 border border-red-800/40 px-3 py-2 text-xs text-red-300">
+                <div className="rounded-xl bg-[#D98282]/20 border border-[#D98282]/40 px-3 py-2 text-xs text-[#D98282]">
                   {formError}
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-2 border-t border-zinc-800">
+              <div className="flex justify-end gap-3 pt-2 border-t border-[rgba(242,240,232,0.08)]">
                 <button
                   type="button"
                   onClick={() => { setShowNewModal(false); setFormError(""); setAttachmentFile(null); }}
-                  className="rounded-md border border-zinc-700 px-4 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 transition cursor-pointer"
+                  className="rounded-xl border border-[rgba(242,240,232,0.08)] px-4 py-2 text-xs font-semibold text-[#9B9D96] hover:bg-[#222B25] transition cursor-pointer"
                 >
                   Discard
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || !!attachmentError}
-                  className="rounded-md bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 text-xs font-semibold transition shadow cursor-pointer disabled:opacity-50"
+                  className="rounded-xl bg-[#3F6B4F] hover:bg-[#2F523C] text-[#F2F0E8] px-5 py-2 text-xs font-semibold transition shadow cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? "Submitting..." : "Submit"}
                 </button>

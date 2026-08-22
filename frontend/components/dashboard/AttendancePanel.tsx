@@ -35,11 +35,11 @@ export default function AttendancePanel({
     : null;
 
   return (
-    <div className="rounded-md border border-zinc-800 bg-zinc-900/60 p-5 shadow-sm space-y-4">
+    <div className="rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)] p-5 space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider">Attendance Panel</h3>
-          <p className="text-xs text-zinc-400 mt-0.5">
+          <h3 className="text-sm font-display font-bold text-[#F2F0E8] uppercase tracking-wider">Attendance Panel</h3>
+          <p className="text-xs text-[#9B9D96] mt-0.5">
             {isCheckedIn
               ? `Currently checked in`
               : isCheckedOut
@@ -52,19 +52,19 @@ export default function AttendancePanel({
         <span
           className={`inline-flex items-center space-x-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
             isCheckedIn
-              ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+              ? "bg-[#8FBF9F]/10 text-[#8FBF9F] border border-[#8FBF9F]/20"
               : isCheckedOut
-              ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-              : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              ? "bg-[#8C9BB3]/10 text-[#8C9BB3] border border-[#8C9BB3]/20"
+              : "bg-[#D6AA5C]/10 text-[#D6AA5C] border border-[#D6AA5C]/20"
           }`}
         >
           <span
             className={`h-2 w-2 rounded-full ${
               isCheckedIn
-                ? "bg-emerald-400 animate-pulse"
+                ? "bg-[#8FBF9F] animate-pulse"
                 : isCheckedOut
-                ? "bg-purple-400"
-                : "bg-amber-400"
+                ? "bg-[#8C9BB3]"
+                : "bg-[#D6AA5C]"
             }`}
           />
           <span>
@@ -79,9 +79,9 @@ export default function AttendancePanel({
 
       {/* Since Time Indicator */}
       {checkInFormatted && (
-        <div className="rounded-md bg-zinc-950/80 border border-zinc-800/80 p-3 flex items-center justify-between text-xs">
-          <span className="text-zinc-500 font-semibold uppercase text-[10px] tracking-wider">Session Active</span>
-          <span className="text-emerald-400 font-medium font-mono">Since {checkInFormatted}</span>
+        <div className="rounded-xl bg-[#0D0F0E]/80 border border-[rgba(242,240,232,0.08)] p-3 flex items-center justify-between text-xs">
+          <span className="text-[#686C66] font-semibold uppercase text-[10px] tracking-wider">Session Active</span>
+          <span className="text-[#8FBF9F] font-medium font-mono">Since {checkInFormatted}</span>
         </div>
       )}
 
@@ -92,7 +92,7 @@ export default function AttendancePanel({
             type="button"
             onClick={onClockOut}
             disabled={loading}
-            className="w-full rounded-md bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold py-2.5 text-xs transition duration-150 shadow-md cursor-pointer flex items-center justify-center space-x-2"
+            className="w-full rounded-xl bg-[#3F6B4F] hover:bg-[#2F523C] active:bg-[#222B25] text-[#F2F0E8] font-semibold py-2.5 text-xs transition duration-150 shadow-md cursor-pointer flex items-center justify-center space-x-2"
           >
             {loading ? (
               <span>Recording Check Out...</span>
@@ -107,7 +107,7 @@ export default function AttendancePanel({
           <button
             type="button"
             disabled
-            className="w-full rounded-md bg-zinc-800 border border-zinc-700/50 text-zinc-500 font-semibold py-2.5 text-xs cursor-not-allowed text-center"
+            className="w-full rounded-xl bg-[#0D0F0E] border border-[rgba(242,240,232,0.08)] text-[#686C66] font-semibold py-2.5 text-xs cursor-not-allowed text-center"
           >
             Attendance Completed Today
           </button>
@@ -116,7 +116,7 @@ export default function AttendancePanel({
             type="button"
             onClick={onClockIn}
             disabled={loading}
-            className="w-full rounded-md bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold py-2.5 text-xs transition duration-150 shadow-md cursor-pointer flex items-center justify-center space-x-2"
+            className="w-full rounded-xl bg-[#3F6B4F] hover:bg-[#2F523C] active:bg-[#222B25] text-[#F2F0E8] font-semibold py-2.5 text-xs transition duration-150 shadow-md cursor-pointer flex items-center justify-center space-x-2"
           >
             {loading ? (
               <span>Recording Check In...</span>

@@ -92,41 +92,41 @@ export default function NewEmployeeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-5 relative">
+      <div className="w-full max-w-md rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] p-6 shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)] space-y-5 relative">
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 text-zinc-400 hover:text-white transition cursor-pointer"
+          className="absolute right-4 top-4 text-[#9B9D96] hover:text-[#F2F0E8] transition cursor-pointer"
         >
           ✕
         </button>
 
         <div>
-          <h3 className="text-lg font-bold text-white uppercase tracking-wide">
+          <h3 className="text-lg font-display font-bold text-[#F2F0E8] uppercase tracking-wide">
             Register New Employee
           </h3>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-[#9B9D96] mt-1">
             Fill out employee details to auto-generate Login ID and credentials.
           </p>
         </div>
 
         {errorMsg && (
-          <div className="rounded-md bg-red-950/30 border border-red-900/50 p-3 text-xs text-red-400">
+          <div className="rounded-xl bg-red-950/30 border border-red-900/50 p-3 text-xs text-red-400">
             {errorMsg}
           </div>
         )}
 
         {createdCredentials ? (
           <div className="space-y-4">
-            <div className="rounded-md bg-emerald-950/30 border border-emerald-800/40 p-4 space-y-2">
-              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">
+            <div className="rounded-xl bg-[#3F6B4F]/10 border border-[#8FBF9F]/20 p-4 space-y-2">
+              <span className="text-xs font-bold text-[#8FBF9F] uppercase tracking-wider block">
                 Employee Created Successfully!
               </span>
-              <div className="text-xs space-y-1 font-mono text-zinc-300">
-                <p><strong className="text-zinc-400 font-sans">Name:</strong> {createdCredentials.fullName}</p>
-                <p><strong className="text-zinc-400 font-sans">Email:</strong> {createdCredentials.email}</p>
-                <p><strong className="text-zinc-400 font-sans">Login ID:</strong> <span className="text-purple-300 font-bold">{createdCredentials.loginId}</span></p>
-                <p><strong className="text-zinc-400 font-sans">Password:</strong> <span className="text-amber-300 font-bold">{createdCredentials.initialPassword}</span></p>
+              <div className="text-xs space-y-1 font-mono text-[#F2F0E8]">
+                <p><strong className="text-[#9B9D96] font-sans">Name:</strong> {createdCredentials.fullName}</p>
+                <p><strong className="text-[#9B9D96] font-sans">Email:</strong> {createdCredentials.email}</p>
+                <p><strong className="text-[#9B9D96] font-sans">Login ID:</strong> <span className="text-[#8FBF9F] font-bold">{createdCredentials.loginId}</span></p>
+                <p><strong className="text-[#9B9D96] font-sans">Password:</strong> <span className="text-[#D6AA5C] font-bold">{createdCredentials.initialPassword}</span></p>
               </div>
             </div>
 
@@ -134,7 +134,7 @@ export default function NewEmployeeModal({
               <button
                 type="button"
                 onClick={handleCopy}
-                className="flex-1 rounded-md bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 text-xs transition cursor-pointer"
+                className="flex-1 rounded-xl bg-[#3F6B4F] hover:bg-[#2F523C] text-[#F2F0E8] font-semibold py-2 text-xs transition cursor-pointer"
               >
                 {copied ? "Copied to Clipboard!" : "Copy Credentials"}
               </button>
@@ -145,7 +145,7 @@ export default function NewEmployeeModal({
                   setCreatedCredentials(null);
                   onClose();
                 }}
-                className="rounded-md border border-zinc-800 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 transition cursor-pointer"
+                className="rounded-xl border border-[rgba(242,240,232,0.08)] px-4 py-2 text-xs font-semibold text-[#F2F0E8] hover:bg-[#222B25] transition cursor-pointer"
               >
                 Done
               </button>
@@ -154,7 +154,7 @@ export default function NewEmployeeModal({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-[#9B9D96] uppercase tracking-wider mb-1">
                 Full Name
               </label>
               <input
@@ -163,12 +163,12 @@ export default function NewEmployeeModal({
                 placeholder="e.g. Jane Smith"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white placeholder-zinc-600 focus:border-purple-500 focus:outline-none"
+                className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-3 py-2 text-xs text-[#F2F0E8] placeholder-[#686C66] focus:border-[#8FBF9F] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-[#9B9D96] uppercase tracking-wider mb-1">
                 Email Address
               </label>
               <input
@@ -177,12 +177,12 @@ export default function NewEmployeeModal({
                 placeholder="jane.smith@company.com"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white placeholder-zinc-600 focus:border-purple-500 focus:outline-none"
+                className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-3 py-2 text-xs text-[#F2F0E8] placeholder-[#686C66] focus:border-[#8FBF9F] focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+              <label className="block text-[11px] font-semibold text-[#9B9D96] uppercase tracking-wider mb-1">
                 Phone Number
               </label>
               <input
@@ -191,13 +191,13 @@ export default function NewEmployeeModal({
                 placeholder="+1 555-0199"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white placeholder-zinc-600 focus:border-purple-500 focus:outline-none"
+                className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-3 py-2 text-xs text-[#F2F0E8] placeholder-[#686C66] focus:border-[#8FBF9F] focus:outline-none"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-[#9B9D96] uppercase tracking-wider mb-1">
                   Department
                 </label>
                 <input
@@ -205,12 +205,12 @@ export default function NewEmployeeModal({
                   required
                   value={form.department}
                   onChange={(e) => setForm({ ...form, department: e.target.value })}
-                  className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-3 py-2 text-xs text-[#F2F0E8] focus:border-[#8FBF9F] focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1">
+                <label className="block text-[11px] font-semibold text-[#9B9D96] uppercase tracking-wider mb-1">
                   Position
                 </label>
                 <input
@@ -218,23 +218,23 @@ export default function NewEmployeeModal({
                   required
                   value={form.position}
                   onChange={(e) => setForm({ ...form, position: e.target.value })}
-                  className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-xs text-white focus:border-purple-500 focus:outline-none"
+                  className="w-full rounded-xl border border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] px-3 py-2 text-xs text-[#F2F0E8] focus:border-[#8FBF9F] focus:outline-none"
                 />
               </div>
             </div>
 
-            <div className="flex justify-end space-x-3 pt-3 border-t border-zinc-800">
+            <div className="flex justify-end space-x-3 pt-3 border-t border-[rgba(242,240,232,0.08)]">
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md border border-zinc-800 px-4 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 transition cursor-pointer"
+                className="rounded-xl border border-[rgba(242,240,232,0.08)] px-4 py-2 text-xs font-semibold text-[#9B9D96] hover:bg-[#222B25] transition cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={loading}
-                className="rounded-md bg-purple-600 hover:bg-purple-700 text-white px-5 py-2 text-xs font-semibold transition shadow-md cursor-pointer"
+                className="rounded-xl bg-[#3F6B4F] hover:bg-[#2F523C] text-[#F2F0E8] px-5 py-2 text-xs font-semibold transition shadow-md cursor-pointer"
               >
                 {loading ? "Creating Employee..." : "Create Employee"}
               </button>

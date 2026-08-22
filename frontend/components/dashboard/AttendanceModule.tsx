@@ -39,7 +39,7 @@ interface HRRecord {
   check_in: string | null;
   check_out: string | null;
   work_hours: number;
-  status: "present" | "absent" | "leave" | "checked-in";
+  status: string;
 }
 
 interface EmployeeRecord {
@@ -48,7 +48,7 @@ interface EmployeeRecord {
   check_out: string | null;
   work_hours: number;
   extra_hours: number;
-  status: "present" | "absent" | "leave" | "weekend" | "checked-in";
+  status: string;
 }
 
 export default function AttendanceModule({ viewerId, viewerRole }: AttendanceModuleProps) {
@@ -74,7 +74,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
   const [hrRecords, setHrRecords] = useState<HRRecord[]>([]);
   const [employeeRecords, setEmployeeRecords] = useState<EmployeeRecord[]>([]);
   const [summary, setSummary] = useState<SummaryStats | null>(null);
-  
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -161,19 +161,19 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "present":
-        return "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20";
+        return "bg-[#8FBF9F]/10 text-[#8FBF9F] border border-[#8FBF9F]/20";
       case "checked-in":
-        return "bg-purple-500/10 text-purple-400 border border-purple-500/20";
+        return "bg-[#D6AA5C]/10 text-[#D6AA5C] border border-[#D6AA5C]/20";
       case "leave":
-        return "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+        return "bg-[#8C9BB3]/10 text-[#8C9BB3] border border-[#8C9BB3]/20";
       case "weekend":
-        return "bg-zinc-800 text-zinc-500 border border-zinc-700/30";
+        return "bg-[#222B25] text-[#9B9D96] border border-[rgba(242,240,232,0.08)]";
       case "data-unavailable":
       case "future":
-        return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
+        return "bg-[#D6AA5C]/10 text-[#D6AA5C] border border-[#D6AA5C]/20";
       case "absent":
       default:
-        return "bg-rose-500/10 text-rose-400 border border-rose-500/20";
+        return "bg-[#D98282]/10 text-[#D98282] border border-[#D98282]/20";
     }
   };
 
@@ -182,7 +182,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
   return (
     <div className="space-y-6">
       {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-md bg-purple-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xl animate-bounce">
+        <div className="fixed bottom-6 right-6 z-50 rounded-md bg-[#3F6B4F] px-4 py-2.5 text-xs font-semibold text-[#F2F0E8] shadow-2xl animate-bounce">
           {toastMsg}
         </div>
       )}
@@ -193,13 +193,13 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
       {isHr && (
         <div className="space-y-6">
           {/* Header & Date Navigation Toolbar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-850">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[rgba(242,240,232,0.04)]">
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-white uppercase tracking-wide">
+              <h1 className="text-xl font-display font-bold tracking-tight text-[#F2F0E8] uppercase tracking-wide">
                 Attendance Directory
               </h1>
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Showing attendance logs for <strong className="text-purple-400 font-mono font-semibold">{formatDateLabel(selectedDate)}</strong>
+              <p className="text-xs text-[#9B9D96] mt-0.5">
+                Showing attendance logs for <strong className="text-[#8FBF9F] font-mono font-semibold">{formatDateLabel(selectedDate)}</strong>
               </p>
             </div>
 
@@ -209,11 +209,10 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
               <button
                 type="button"
                 onClick={() => setOnlyLogged(!onlyLogged)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition cursor-pointer ${
-                  onlyLogged
-                    ? "bg-purple-600/20 text-purple-300 border-purple-500/40"
-                    : "bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white"
-                }`}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition cursor-pointer ${onlyLogged
+                  ? "bg-[#3F6B4F]/20 text-[#8FBF9F] border-[#8FBF9F]/40"
+                  : "bg-[#0D0F0E] text-[#9B9D96] border-[rgba(242,240,232,0.08)] hover:text-[#F2F0E8]"
+                  }`}
               >
                 {onlyLogged ? "✓ Active Logs Only" : "All Employees"}
               </button>
@@ -225,17 +224,17 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                   placeholder="Search Employee / ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="bg-zinc-950 border border-zinc-800 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-purple-600 w-48"
+                  className="bg-[#0D0F0E] border border-[rgba(242,240,232,0.08)] text-[#F2F0E8] rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-[#8FBF9F] w-48"
                 />
               </div>
 
               {/* Date navigation */}
-              <div className="flex items-center space-x-1.5 bg-zinc-900/60 p-1 border border-zinc-800 rounded-lg">
+              <div className="flex items-center space-x-1.5 bg-[#1A211C] p-1 border border-[rgba(242,240,232,0.08)] rounded-xl">
                 <button
                   type="button"
                   onClick={() => handleAdjustDate(-1)}
                   title="Previous Day"
-                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white px-2 py-1 text-xs rounded transition font-mono cursor-pointer font-bold"
+                  className="hover:bg-[#222B25] text-[#9B9D96] hover:text-[#F2F0E8] px-2 py-1 text-xs rounded transition font-mono cursor-pointer font-bold"
                 >
                   ←
                 </button>
@@ -245,13 +244,13 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                   onChange={(e) => {
                     if (e.target.value) setSelectedDate(e.target.value);
                   }}
-                  className="bg-transparent text-white text-xs border-none outline-none px-1.5 py-0.5 focus:ring-0 font-medium cursor-pointer"
+                  className="bg-transparent text-[#F2F0E8] text-xs border-none outline-none px-1.5 py-0.5 focus:ring-0 font-medium cursor-pointer"
                 />
                 <button
                   type="button"
                   onClick={() => handleAdjustDate(1)}
                   title="Next Day"
-                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white px-2 py-1 text-xs rounded transition font-mono cursor-pointer font-bold"
+                  className="hover:bg-[#222B25] text-[#9B9D96] hover:text-[#F2F0E8] px-2 py-1 text-xs rounded transition font-mono cursor-pointer font-bold"
                 >
                   →
                 </button>
@@ -259,7 +258,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                   type="button"
                   onClick={handleResetToToday}
                   title="Jump to Today"
-                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2 py-1 text-[10px] uppercase font-bold rounded transition cursor-pointer ml-1"
+                  className="bg-[#222B25] hover:bg-[#2F523C] text-[#F2F0E8] px-2 py-1 text-[10px] uppercase font-bold rounded transition cursor-pointer ml-1"
                 >
                   Today
                 </button>
@@ -269,9 +268,9 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
 
           {/* Future Date Alert Banner */}
           {isFutureSelectedDate && (
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-center justify-between text-xs text-amber-300">
+            <div className="rounded-xl border border-[#D6AA5C]/20 bg-[#D6AA5C]/5 p-4 flex items-center justify-between text-xs text-[#D6AA5C]">
               <div className="flex items-center space-x-2.5">
-                <svg className="h-5 w-5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="h-5 w-5 text-[#D6AA5C] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span>
@@ -281,7 +280,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
               <button
                 type="button"
                 onClick={handleResetToToday}
-                className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ml-4"
+                className="bg-[#D6AA5C]/20 hover:bg-[#D6AA5C]/30 text-[#F2F0E8] border border-[#D6AA5C]/30 px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ml-4"
               >
                 Return to Today
               </button>
@@ -289,10 +288,10 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
           )}
 
           {/* Table display */}
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 overflow-hidden shadow-md">
+          <div className="rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] overflow-hidden shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)]">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-zinc-300 min-w-[700px]">
-                <thead className="bg-zinc-950 text-zinc-500 uppercase tracking-wider text-[10px] border-b border-zinc-800">
+              <table className="w-full text-left text-xs text-[#F2F0E8] min-w-[700px]">
+                <thead className="bg-[#0D0F0E] text-[#686C66] uppercase tracking-wider text-[10px] border-b border-[rgba(242,240,232,0.08)]">
                   <tr>
                     <th className="px-5 py-3">Employee</th>
                     <th className="px-5 py-3">Login ID</th>
@@ -303,12 +302,12 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                     <th className="px-5 py-3">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-850">
+                <tbody className="divide-y divide-[rgba(242,240,232,0.04)]">
                   {loading ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-12 text-center text-zinc-500">
+                      <td colSpan={7} className="px-5 py-12 text-center text-[#9B9D96]">
                         <div className="flex flex-col items-center space-y-2">
-                          <svg className="animate-spin h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24">
+                          <svg className="animate-spin h-5 w-5 text-[#8FBF9F]" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
@@ -318,7 +317,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                     </tr>
                   ) : error ? (
                     <tr>
-                      <td colSpan={7} className="px-5 py-8 text-center text-rose-400 font-semibold">
+                      <td colSpan={7} className="px-5 py-8 text-center text-[#D98282] font-semibold">
                         {error}
                       </td>
                     </tr>
@@ -326,24 +325,24 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                     hrRecords.map((rec) => {
                       const extraHrs = Math.max(0, rec.work_hours - 8.0);
                       return (
-                        <tr key={rec.id} className="hover:bg-zinc-900/40 transition">
+                        <tr key={rec.id} className="hover:bg-[#141A16] transition">
                           <td className="px-5 py-3.5">
-                            <div className="font-semibold text-white">{rec.full_name}</div>
-                            <div className="text-[10px] text-zinc-500 mt-0.5">{rec.position} • {rec.department}</div>
+                            <div className="font-semibold text-[#F2F0E8]">{rec.full_name}</div>
+                            <div className="text-[10px] text-[#9B9D96] mt-0.5">{rec.position} • {rec.department}</div>
                           </td>
-                          <td className="px-5 py-3.5 font-mono font-medium text-zinc-400">
+                          <td className="px-5 py-3.5 font-mono font-medium text-[#9B9D96]">
                             {rec.employee_id}
                           </td>
-                          <td className="px-5 py-3.5 text-zinc-200">
+                          <td className="px-5 py-3.5 text-[#F2F0E8]">
                             {formatTime(rec.check_in)}
                           </td>
-                          <td className="px-5 py-3.5 text-zinc-200">
+                          <td className="px-5 py-3.5 text-[#F2F0E8]">
                             {formatTime(rec.check_out)}
                           </td>
-                          <td className="px-5 py-3.5 font-mono text-zinc-200">
+                          <td className="px-5 py-3.5 font-mono text-[#F2F0E8]">
                             {rec.work_hours > 0 ? `${rec.work_hours.toFixed(2)} hrs` : "-"}
                           </td>
-                          <td className="px-5 py-3.5 font-mono text-purple-400 font-semibold">
+                          <td className="px-5 py-3.5 font-mono text-[#8FBF9F] font-semibold">
                             {extraHrs > 0 ? `+${extraHrs.toFixed(2)} hrs` : "-"}
                           </td>
                           <td className="px-5 py-3.5">
@@ -356,7 +355,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="px-5 py-12 text-center text-zinc-500">
+                      <td colSpan={7} className="px-5 py-12 text-center text-[#9B9D96]">
                         {isFutureSelectedDate
                           ? "Attendance data unavailable for future dates."
                           : "No attendance records found for this date."}
@@ -376,64 +375,64 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
       {!isHr && (
         <div className="space-y-6">
           {/* Summary widgets at the top */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-850 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[rgba(242,240,232,0.04)] pb-4">
             <div>
-              <h1 className="text-xl font-bold tracking-tight text-white uppercase tracking-wide">
+              <h1 className="text-xl font-display font-bold tracking-tight text-[#F2F0E8] uppercase tracking-wide">
                 My Attendance
               </h1>
-              <p className="text-xs text-zinc-400 mt-0.5">
+              <p className="text-xs text-[#9B9D96] mt-0.5">
                 Track your personal check-ins, working days, and payable payroll stats.
               </p>
             </div>
 
             {/* Month Picker */}
-            <div className="flex items-center space-x-2 bg-zinc-900/60 px-3 py-1.5 border border-zinc-800 rounded-lg shrink-0">
-              <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Select Month</span>
+            <div className="flex items-center space-x-2 bg-[#1A211C] px-3 py-1.5 border border-[rgba(242,240,232,0.08)] rounded-xl shrink-0">
+              <span className="text-[10px] text-[#686C66] uppercase font-bold tracking-wider">Select Month</span>
               <input
                 type="month"
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(e.target.value)}
-                className="bg-transparent text-white text-xs border-none outline-none focus:ring-0 font-semibold cursor-pointer"
+                className="bg-transparent text-[#F2F0E8] text-xs border-none outline-none focus:ring-0 font-semibold cursor-pointer"
               />
             </div>
           </div>
 
           {/* Cards Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4.5 shadow-sm space-y-1">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Days Present</span>
-              <strong className="text-2xl font-bold text-emerald-400 block font-mono">
+            <div className="rounded-2xl border border-[rgba(242,240,232,0.04)] bg-[#141A16] p-4.5 shadow-[inset_3px_3px_7px_rgba(0,0,0,0.35),inset_-2px_-2px_5px_rgba(255,255,255,0.02)] space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[#686C66]">Days Present</span>
+              <strong className="text-2xl font-bold text-[#8FBF9F] block font-mono">
                 {loading ? "-" : summary?.daysPresent || 0}
               </strong>
             </div>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4.5 shadow-sm space-y-1">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Leaves Count</span>
-              <strong className="text-2xl font-bold text-blue-400 block font-mono">
+            <div className="rounded-2xl border border-[rgba(242,240,232,0.04)] bg-[#141A16] p-4.5 shadow-[inset_3px_3px_7px_rgba(0,0,0,0.35),inset_-2px_-2px_5px_rgba(255,255,255,0.02)] space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[#686C66]">Leaves Count</span>
+              <strong className="text-2xl font-bold text-[#8C9BB3] block font-mono">
                 {loading ? "-" : summary?.leavesCount || 0}
               </strong>
             </div>
 
-            <div className="rounded-xl border border-zinc-800 bg-zinc-900/20 p-4.5 shadow-sm space-y-1">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-zinc-500">Total Weekdays</span>
-              <strong className="text-2xl font-bold text-zinc-300 block font-mono">
+            <div className="rounded-2xl border border-[rgba(242,240,232,0.04)] bg-[#141A16] p-4.5 shadow-[inset_3px_3px_7px_rgba(0,0,0,0.35),inset_-2px_-2px_5px_rgba(255,255,255,0.02)] space-y-1">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[#686C66]">Total Weekdays</span>
+              <strong className="text-2xl font-bold text-[#F2F0E8] block font-mono">
                 {loading ? "-" : summary?.totalWorkingDays || 0}
               </strong>
             </div>
 
-            <div className="rounded-xl border border-purple-500/10 bg-purple-950/5 p-4.5 shadow-sm space-y-1 border-t-2 border-t-purple-500">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-purple-400">Payable Days</span>
-              <strong className="text-2xl font-bold text-white block font-mono">
+            <div className="rounded-2xl border border-[#3F6B4F]/20 bg-[#1A211C] p-4.5 shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)] space-y-1 border-t-[3px] border-t-[#8FBF9F]">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-[#8FBF9F]">Payable Days</span>
+              <strong className="text-2xl font-bold text-[#F2F0E8] block font-mono">
                 {loading ? "-" : summary?.payableDays || 0}
               </strong>
             </div>
           </div>
 
           {/* Attendance History Calendar Table */}
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 overflow-hidden shadow-md">
+          <div className="rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] overflow-hidden shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)]">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-zinc-300 min-w-[600px]">
-                <thead className="bg-zinc-950 text-zinc-500 uppercase tracking-wider text-[10px] border-b border-zinc-800">
+              <table className="w-full text-left text-xs text-[#F2F0E8] min-w-[600px]">
+                <thead className="bg-[#0D0F0E] text-[#686C66] uppercase tracking-wider text-[10px] border-b border-[rgba(242,240,232,0.08)]">
                   <tr>
                     <th className="px-5 py-3">Date</th>
                     <th className="px-5 py-3">Check In</th>
@@ -443,12 +442,12 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                     <th className="px-5 py-3">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-850">
+                <tbody className="divide-y divide-[rgba(242,240,232,0.04)]">
                   {loading ? (
                     <tr>
-                      <td colSpan={6} className="px-5 py-12 text-center text-zinc-500">
+                      <td colSpan={6} className="px-5 py-12 text-center text-[#9B9D96]">
                         <div className="flex flex-col items-center space-y-2">
-                          <svg className="animate-spin h-5 w-5 text-purple-500" fill="none" viewBox="0 0 24 24">
+                          <svg className="animate-spin h-5 w-5 text-[#8FBF9F]" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                           </svg>
@@ -458,26 +457,26 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                     </tr>
                   ) : error ? (
                     <tr>
-                      <td colSpan={6} className="px-5 py-8 text-center text-rose-400 font-semibold">
+                      <td colSpan={6} className="px-5 py-8 text-center text-[#D98282] font-semibold">
                         {error}
                       </td>
                     </tr>
                   ) : employeeRecords.length > 0 ? (
                     employeeRecords.map((rec, index) => (
-                      <tr key={index} className="hover:bg-zinc-900/40 transition">
-                        <td className="px-5 py-3.5 font-mono font-medium text-white">
+                      <tr key={index} className="hover:bg-[#141A16] transition">
+                        <td className="px-5 py-3.5 font-mono font-medium text-[#F2F0E8]">
                           {formatDateLabel(rec.date)}
                         </td>
-                        <td className="px-5 py-3.5 text-zinc-200">
+                        <td className="px-5 py-3.5 text-[#F2F0E8]">
                           {formatTime(rec.check_in)}
                         </td>
-                        <td className="px-5 py-3.5 text-zinc-200">
+                        <td className="px-5 py-3.5 text-[#F2F0E8]">
                           {formatTime(rec.check_out)}
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-zinc-200">
+                        <td className="px-5 py-3.5 font-mono text-[#F2F0E8]">
                           {rec.work_hours > 0 ? `${rec.work_hours.toFixed(2)} hrs` : "-"}
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-purple-400 font-semibold">
+                        <td className="px-5 py-3.5 font-mono text-[#8FBF9F] font-semibold">
                           {rec.extra_hours > 0 ? `+${rec.extra_hours.toFixed(2)} hrs` : "-"}
                         </td>
                         <td className="px-5 py-3.5">
@@ -489,7 +488,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={6} className="px-5 py-12 text-center text-zinc-500">
+                      <td colSpan={6} className="px-5 py-12 text-center text-[#9B9D96]">
                         No calendar records logged for this month.
                       </td>
                     </tr>

@@ -362,23 +362,23 @@ export default function DashboardPage() {
 
   if (loading || !currentUser) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-100 font-sans">
+      <div className="flex min-h-screen items-center justify-center bg-[#0D0F0E] text-[#F2F0E8] font-sans">
         <div className="flex flex-col items-center space-y-4">
-          <svg className="animate-spin h-8 w-8 text-purple-500" fill="none" viewBox="0 0 24 24">
+          <svg className="animate-spin h-8 w-8 text-[#8FBF9F]" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
-          <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Loading Workspace...</span>
+          <span className="text-xs font-mono font-semibold uppercase tracking-wider text-[#686C66]">Loading Workspace...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 font-sans selection:bg-purple-600 selection:text-white">
+    <div className="flex min-h-screen flex-col bg-[#0D0F0E] text-[#F2F0E8] font-sans selection:bg-[#3F6B4F] selection:text-[#F2F0E8]">
       {/* Toast Alert Banner */}
       {toastMsg && (
-        <div className="fixed bottom-6 right-6 z-50 rounded-md bg-purple-600 px-4 py-2.5 text-xs font-semibold text-white shadow-2xl transition animate-in fade-in slide-in-from-bottom-3 duration-150">
+        <div className="fixed bottom-6 right-6 z-50 rounded-xl bg-[#8FBF9F] px-4 py-2.5 text-xs font-mono font-semibold text-[#0D0F0E] shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] transition animate-in fade-in slide-in-from-bottom-3 duration-150">
           {toastMsg}
         </div>
       )}
@@ -417,12 +417,12 @@ export default function DashboardPage() {
             {isHr ? (
               <>
                 {/* HR Toolbar Area */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[rgba(242,240,232,0.08)]">
                   <div>
-                    <h1 className="text-xl font-bold tracking-tight text-white uppercase tracking-wide">
+                    <h1 className="text-xl font-display font-bold tracking-tight text-[#F2F0E8] uppercase tracking-wide">
                       Employee Workspace
                     </h1>
-                    <p className="text-xs text-zinc-400 mt-0.5">
+                    <p className="text-xs text-[#9B9D96] mt-0.5">
                       Directory of organization staff and attendance states
                     </p>
                   </div>
@@ -434,7 +434,7 @@ export default function DashboardPage() {
                     <button
                       type="button"
                       onClick={() => setShowNewEmployeeModal(true)}
-                      className="rounded-md bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold px-4 py-2 text-xs transition duration-150 shadow-md cursor-pointer flex items-center space-x-1.5 shrink-0"
+                      className="rounded-xl bg-[#3F6B4F] hover:bg-[#4D7D5E] text-[#F2F0E8] font-mono font-semibold px-4 py-2 text-xs transition duration-150 shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] active:translate-y-0 active:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.2)] border-none cursor-pointer flex items-center space-x-1.5 shrink-0"
                     >
                       <span>+ NEW</span>
                     </button>
@@ -453,14 +453,14 @@ export default function DashboardPage() {
 
                 {/* Staff Directory Cards Grid (HR ONLY) */}
                 <section className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-zinc-400">
-                    <span className="font-semibold uppercase tracking-wider text-[11px] text-zinc-500">
+                  <div className="flex items-center justify-between text-xs text-[#9B9D96]">
+                    <span className="font-mono font-semibold uppercase tracking-wider text-[11px] text-[#686C66]">
                       Staff Directory ({filteredEmployees.length})
                     </span>
                     <div className="flex items-center space-x-4 text-[11px]">
-                      <span className="flex items-center space-x-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /><span>Present</span></span>
-                      <span className="flex items-center space-x-1"><span className="h-2 w-2 rounded-full bg-blue-500" /><span>On Leave</span></span>
-                      <span className="flex items-center space-x-1"><span className="h-2 w-2 rounded-full bg-amber-400" /><span>Absent</span></span>
+                      <span className="flex items-center space-x-1"><span className="h-2 w-2 rounded-full bg-[#8FBF9F]" /><span>Present</span></span>
+                      <span className="flex items-center space-x-1"><span className="h-2 w-2 rounded-full bg-[#D6AA5C]" /><span>On Leave</span></span>
+                      <span className="flex items-center space-x-1"><span className="h-2 w-2 rounded-full bg-[#686C66]" /><span>Absent</span></span>
                     </div>
                   </div>
 
@@ -474,11 +474,11 @@ export default function DashboardPage() {
             ) : (
               <>
                 {/* Employee User Workspace Header */}
-                <div className="pb-4 border-b border-zinc-800">
-                  <h1 className="text-xl font-bold tracking-tight text-white uppercase tracking-wide">
+                <div className="pb-4 border-b border-[rgba(242,240,232,0.08)]">
+                  <h1 className="text-xl font-display font-bold tracking-tight text-[#F2F0E8] uppercase tracking-wide">
                     My Workspace
                   </h1>
-                  <p className="text-xs text-zinc-400 mt-0.5">
+                  <p className="text-xs text-[#9B9D96] mt-0.5">
                     Welcome back, {userProfile?.full_name || currentUser.fullName || currentUser.email}
                   </p>
                 </div>
@@ -495,7 +495,7 @@ export default function DashboardPage() {
 
                 {/* Personal Profile Details Card (EMPLOYEE ONLY) */}
                 <section className="space-y-3">
-                  <span className="font-semibold uppercase tracking-wider text-[11px] text-zinc-500 block">
+                  <span className="font-mono font-semibold uppercase tracking-wider text-[11px] text-[#686C66] block">
                     Account Details
                   </span>
 
@@ -551,12 +551,12 @@ export default function DashboardPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-900 bg-zinc-950 py-6">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-zinc-500 gap-2">
+      <footer className="border-t border-[rgba(242,240,232,0.08)] bg-[#0D0F0E] py-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-[#686C66] gap-2">
           <span>&copy; {new Date().getFullYear()} Dayflow HRMS. All rights reserved.</span>
           <div className="flex space-x-4 text-[11px]">
-            <span>Role: <strong className="text-zinc-400 uppercase">{currentUser.role}</strong></span>
-            <span>ID: <strong className="text-zinc-400 font-mono">{currentUser.employeeId}</strong></span>
+            <span>Role: <strong className="text-[#9B9D96] uppercase">{currentUser.role}</strong></span>
+            <span>ID: <strong className="text-[#9B9D96] font-mono">{currentUser.employeeId}</strong></span>
           </div>
         </div>
       </footer>
@@ -573,29 +573,29 @@ export default function DashboardPage() {
 
       {/* Forced Password Change Modal */}
       {showChangePasswordModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-8 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#000000]/70 backdrop-blur-md p-4">
+          <div className="w-full max-w-md rounded-3xl border border-[rgba(242,240,232,0.04)] bg-[#1A211C] p-8 shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)]">
             <div className="flex flex-col items-center text-center space-y-3 mb-6">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-600/10 border border-purple-500/30 text-purple-400">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#3F6B4F]/10 border border-[#8FBF9F]/30 text-[#8FBF9F]">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
-              <h2 className="text-xl font-bold tracking-tight text-white">Secure Your Account</h2>
-              <p className="text-xs text-zinc-400 max-w-sm">
+              <h2 className="text-xl font-display font-bold tracking-tight text-[#F2F0E8]">Secure Your Account</h2>
+              <p className="text-xs text-[#9B9D96] max-w-sm">
                 Since this is your first sign-in, you are required to change your initial password before accessing the dashboard.
               </p>
             </div>
 
             <form onSubmit={handleChangePassword} className="space-y-4">
               {changePasswordError && (
-                <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs text-rose-400">
+                <div className="rounded-xl bg-[#D98282]/10 border border-[#D98282]/20 px-4 py-2.5 text-xs text-[#D98282]">
                   {changePasswordError}
                 </div>
               )}
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#686C66]">
                   New Password
                 </label>
                 <div className="relative">
@@ -604,12 +604,12 @@ export default function DashboardPage() {
                     value={newPasswordInput}
                     onChange={(e) => setNewPasswordInput(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/40 px-3.5 py-2 text-sm text-white placeholder-zinc-600 focus:border-purple-500 focus:outline-none transition"
+                    className="w-full rounded-xl border-none shadow-[inset_3px_3px_7px_rgba(0,0,0,0.35),inset_-2px_-2px_5px_rgba(255,255,255,0.02)] bg-[#141A16] px-3.5 py-2.5 text-sm text-[#F2F0E8] placeholder-[#686C66] focus:ring-2 focus:ring-[#8FBF9F] focus:outline-none transition"
                   />
                   <button
                     type="button"
                     onClick={() => setShowNewPasswordToggle(!showNewPasswordToggle)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[#686C66] hover:text-[#8FBF9F]"
                   >
                     {showNewPasswordToggle ? (
                       <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -626,7 +626,7 @@ export default function DashboardPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                <label className="text-[10px] font-mono font-semibold uppercase tracking-wider text-[#686C66]">
                   Confirm New Password
                 </label>
                 <input
@@ -634,14 +634,14 @@ export default function DashboardPage() {
                   value={confirmNewPasswordInput}
                   onChange={(e) => setConfirmNewPasswordInput(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900/40 px-3.5 py-2 text-sm text-white placeholder-zinc-600 focus:border-purple-500 focus:outline-none transition"
+                  className="w-full rounded-xl border-none shadow-[inset_3px_3px_7px_rgba(0,0,0,0.35),inset_-2px_-2px_5px_rgba(255,255,255,0.02)] bg-[#141A16] px-3.5 py-2.5 text-sm text-[#F2F0E8] placeholder-[#686C66] focus:ring-2 focus:ring-[#8FBF9F] focus:outline-none transition"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="w-full rounded-lg bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold py-2.5 text-xs transition duration-150 shadow-md cursor-pointer disabled:opacity-50 mt-2"
+                className="w-full rounded-xl bg-[#3F6B4F] hover:bg-[#4D7D5E] text-[#F2F0E8] font-mono font-semibold py-3 text-xs transition duration-150 shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] active:translate-y-0 active:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.2)] border-none cursor-pointer disabled:opacity-50 mt-4"
               >
                 {actionLoading ? "Updating Password..." : "Update Password"}
               </button>

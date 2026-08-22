@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 interface UserSession {
@@ -10,6 +9,96 @@ interface UserSession {
   employeeId: string;
   email: string;
   role: string;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Signature element: "The Day Ruler" — a horizontal time ledger that     */
+/* reappears (in two variants) as the visual thread through the page.     */
+/* Hours run 08:00–18:00 since that's the real shape of a workday.        */
+/* ---------------------------------------------------------------------- */
+
+interface RulerMark {
+  pct: number; // 0-100 position along the ruler
+  label: string;
+  sub: string;
+  color: string;
+}
+
+function DayRuler({
+  marks,
+  variant = "light",
+}: {
+  marks: RulerMark[];
+  variant?: "light" | "dark";
+}) {
+  const hours = Array.from({ length: 11 }, (_, i) => 8 + i); // 08..18
+  const line = variant === "light" ? "rgba(242,240,232,0.08)" : "rgba(242,240,232,0.04)";
+  const tick = variant === "light" ? "rgba(242,240,232,0.15)" : "rgba(242,240,232,0.08)";
+  const label = variant === "light" ? "#686C66" : "rgba(242,240,232,0.5)";
+
+  return (
+    <div className="relative w-full pt-10 pb-2">
+      {/* base rule */}
+      <div className="relative h-px w-full" style={{ backgroundColor: line }}>
+        {hours.map((h) => {
+          const pct = ((h - 8) / 10) * 100;
+          return (
+            <div
+              key={h}
+              className="absolute top-0 flex flex-col items-center"
+              style={{ left: `${pct}%`, transform: "translateX(-50%)" }}
+            >
+              <div className="h-2 w-px" style={{ backgroundColor: tick }} />
+              <span
+                className="font-mono mt-1.5 text-[10px] tracking-wide"
+                style={{ color: label }}
+              >
+                {String(h).padStart(2, "0")}
+              </span>
+            </div>
+          );
+        })}
+
+        {/* annotated marks */}
+        {marks.map((m, i) => (
+          <div
+            key={i}
+            className="absolute -top-9 flex flex-col items-center"
+            style={{ left: `${m.pct}%`, transform: "translateX(-50%)" }}
+          >
+            <span
+              className="font-mono whitespace-nowrap text-[10px] font-medium mb-1"
+              style={{ color: variant === "light" ? "#F2F0E8" : "#F2F0E8" }}
+            >
+              {m.label}
+            </span>
+            <span
+              className="font-mono whitespace-nowrap text-[9px] mb-1.5"
+              style={{ color: variant === "light" ? "#9B9D96" : "rgba(242,240,232,0.5)" }}
+            >
+              {m.sub}
+            </span>
+            <span
+              className="relative flex h-2.5 w-2.5"
+              style={{ marginTop: "1px" }}
+            >
+              <span
+                className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full opacity-60"
+                style={{ backgroundColor: m.color }}
+              />
+              <span
+                className="relative inline-flex h-2.5 w-2.5 rounded-full ring-2"
+                style={{
+                  backgroundColor: m.color,
+                  boxShadow: `0 0 0 2px ${variant === "light" ? "#1A211C" : "#141A16"}`,
+                }}
+              />
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -22,22 +111,18 @@ export default function Home() {
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Check if user is logged in via localStorage and redirect accordingly
+  // Check if user is logged in via localStorage
   useEffect(() => {
     const user = localStorage.getItem("currentUser");
     if (user) {
       try {
         const parsed = JSON.parse(user);
         setCurrentUser(parsed);
-        router.push("/dashboard");
       } catch (e) {
         localStorage.removeItem("currentUser");
-        router.push("/signin");
       }
-    } else {
-      router.push("/signin");
     }
-  }, [router]);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +166,7 @@ export default function Home() {
       // Clear inputs
       setLoginIdOrEmail("");
       setLoginPassword("");
-      
+
       // Redirect to dashboard
       router.push("/dashboard");
     } catch (err: any) {
@@ -96,54 +181,116 @@ export default function Home() {
     setCurrentUser(null);
   };
 
-  return (
-    <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 font-sans relative overflow-hidden">
-      {/* Background radial glows */}
-      <div className="absolute top-[-20%] left-[-10%] h-[600px] w-[600px] rounded-full bg-indigo-500/10 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] h-[600px] w-[600px] rounded-full bg-violet-600/10 blur-[120px] pointer-events-none" />
+  const heroMarks: RulerMark[] = [
+    { pct: 10.7, label: "09:04", sub: "Checked in", color: "#8FBF9F" },
+    { pct: 45, label: "12d", sub: "Leave left", color: "#D6AA5C" },
+    { pct: 90, label: "Payroll", sub: "Available", color: "#D6AA5C" },
+  ];
 
-      {/* Header / Navbar */}
-      <header className="border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md z-10 sticky top-0">
+  const stepMarks: RulerMark[] = [
+    { pct: 5, label: "Sign in", sub: "09:00", color: "#D6AA5C" },
+    { pct: 38, label: "Manage", sub: "12:00", color: "#D6AA5C" },
+    { pct: 68, label: "Review", sub: "15:00", color: "#D6AA5C" },
+    { pct: 95, label: "Sync", sub: "18:00", color: "#D6AA5C" },
+  ];
+
+  const features = [
+    {
+      tag: "PROFILES",
+      title: "Employee Management",
+      desc: "Centralized profiles for all team members. Keep track of personal info, documents, and roles easily.",
+    },
+    {
+      tag: "TRACK",
+      title: "Attendance Tracking",
+      desc: "Seamlessly log check-ins and check-outs. HR gets a bird's-eye view of daily presence and working hours.",
+    },
+    {
+      tag: "APPROVE",
+      title: "Leave & Time-Off",
+      desc: "Employees can request days off effortlessly while balances update automatically upon HR approval.",
+    },
+    {
+      tag: "PAYROLL",
+      title: "Payroll Visibility",
+      desc: "Securely store salary structures and allow employees to view their compensation breakdowns with ease.",
+    },
+    {
+      tag: "ACCESS",
+      title: "Role-Based Guarding",
+      desc: "Profiles strictly categorized into employee and hr with constraints verified directly at the database level.",
+    },
+    {
+      tag: "SECURE",
+      title: "Secure Auth",
+      desc: "Passwords managed and encrypted safely using Supabase. Never exposed to frontends or client apps.",
+    },
+  ];
+
+  return (
+    <div className="flex min-h-screen flex-col bg-[#0D0F0E] text-[#F2F0E8] font-body">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+        .font-display { font-family: 'Fraunces', ui-serif, Georgia, serif; }
+        .font-mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+        .font-body { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+          }
+        }
+      `}</style>
+
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-[rgba(242,240,232,0.08)] bg-[rgba(13,15,14,0.88)] backdrop-blur-md">
         <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-500 to-violet-600 shadow-md shadow-indigo-500/10">
-              <span className="text-sm font-bold text-white">D</span>
-            </div>
-            <span className="text-xl font-bold tracking-tight text-white">Dayflow</span>
+          <div className="flex items-center space-x-2.5">
+            <span className="relative flex h-2 w-2">
+              <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-[#8FBF9F] opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#8FBF9F]" />
+            </span>
+            <span className="font-mono text-[15px] font-semibold tracking-[0.08em] text-[#F2F0E8]">
+              DAYFLOW
+            </span>
+            <span className="hidden sm:inline font-mono text-[10px] tracking-widest text-[#686C66] border-l border-[rgba(242,240,232,0.08)] pl-2.5 ml-0.5">
+              WORKFORCE LEDGER
+            </span>
           </div>
 
-          <nav className="flex items-center space-x-4">
+          <nav className="flex items-center space-x-3 sm:space-x-5">
             {currentUser ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-xs text-zinc-400 hidden sm:inline-block">
-                  Logged in as <strong className="text-zinc-200">{currentUser.email}</strong>
+              <>
+                <span className="font-mono text-xs text-[#9B9D96] hidden md:inline-block">
+                  {currentUser.email}
                 </span>
                 <Link
                   href="/dashboard"
-                  className="rounded-lg bg-zinc-900 border border-zinc-800 px-4 py-2 text-xs font-semibold hover:bg-zinc-800 transition cursor-pointer"
+                  className="rounded-md border-none bg-[#1A211C] px-4 py-2 text-xs font-mono font-semibold tracking-wide text-[#9B9D96] hover:bg-[#222B25] hover:text-[#8FBF9F] shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FBF9F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0F0E]"
                 >
-                  Dashboard
+                  DASHBOARD
                 </Link>
                 <button
                   onClick={handleSignOut}
-                  className="rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-400 px-4 py-2 text-xs font-semibold hover:bg-rose-500/20 transition cursor-pointer"
+                  className="text-xs font-mono font-semibold tracking-wide text-[#D98282] hover:text-[#e49b9b] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#D98282] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0F0E] rounded"
                 >
-                  Sign Out
+                  SIGN OUT
                 </button>
-              </div>
+              </>
             ) : (
               <>
                 <button
                   onClick={() => setShowLoginModal(true)}
-                  className="text-xs font-semibold text-zinc-400 hover:text-white transition cursor-pointer"
+                  className="text-xs font-mono font-semibold tracking-wide text-[#9B9D96] hover:text-[#F2F0E8] transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FBF9F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0F0E] rounded px-1"
                 >
-                  Sign In
+                  SIGN IN
                 </button>
                 <Link
                   href="/signup"
-                  className="rounded-lg bg-gradient-to-r from-indigo-500 to-violet-600 px-4 py-2 text-xs font-semibold text-white hover:from-indigo-600 hover:to-violet-700 shadow-md shadow-indigo-500/10 transition cursor-pointer"
+                  className="rounded-md bg-[#3F6B4F] px-5 py-2.5 text-xs font-mono font-semibold tracking-wide text-[#F2F0E8] hover:bg-[#4D7D5E] shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FBF9F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0F0E]"
                 >
-                  Register
+                  REGISTER
                 </Link>
               </>
             )}
@@ -151,233 +298,396 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Hero & Actions */}
-      <main className="flex-1 flex flex-col justify-center items-center px-6 py-20 z-10">
-        <div className="mx-auto max-w-4xl text-center space-y-8">
-          <div className="inline-flex items-center space-x-2 rounded-full border border-indigo-500/30 bg-indigo-500/5 px-3 py-1 text-xs text-indigo-400">
-            <span>✨ Dayflow HRMS v1.0 Sign Up is Active</span>
-          </div>
+      <main className="flex-1 flex flex-col pt-28">
+        {/* HERO */}
+        <section className="px-6 py-16 sm:py-20 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+          <div className="space-y-7 text-center lg:text-left">
+            <div className="inline-flex items-center font-mono text-[11px] tracking-[0.15em] text-[#686C66] border border-[rgba(242,240,232,0.08)] rounded-full px-3 py-1.5">
+              DAYFLOW HRMS — VOL. 01
+            </div>
 
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-white max-w-3xl mx-auto leading-[1.1]">
-            Simplify Workspace Management with{" "}
-            <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Dayflow
-            </span>
-          </h1>
+            <h1 className="font-display text-5xl sm:text-6xl lg:text-[4.5rem] leading-[1.05] tracking-tight text-[#F2F0E8]">
+              Your workday,
+              <br />
+              <span className="italic text-[#8FBF9F]">perfectly aligned.</span>
+            </h1>
 
-          <p className="text-lg text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-            Register your Employee profile or coordinate operations as HR. Experience a human
-            resource management system crafted with exceptional security, role management, and sleek interfaces.
-          </p>
+            <p className="text-lg text-[#9B9D96] max-w-xl mx-auto lg:mx-0 leading-relaxed">
+              A premium human resource management system designed to make employee
+              tracking, attendance, leaves, and payroll feel effortless and clearly
+              accounted for — like a ledger that keeps itself.
+            </p>
 
-          <div className="flex flex-col sm:flex-row justify-center items-center gap-4 pt-4">
-            {currentUser ? (
-              <Link
-                href="/dashboard"
-                className="flex items-center space-x-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-8 py-4 text-sm font-semibold text-white hover:from-indigo-600 hover:to-violet-700 shadow-xl shadow-indigo-500/10 transition active:scale-[0.98] cursor-pointer"
-              >
-                <span>Enter User Dashboard</span>
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            ) : (
-              <>
+            <div className="flex flex-col sm:flex-row justify-center lg:justify-start items-center gap-4 pt-2">
+              {currentUser ? (
                 <Link
-                  href="/signup"
-                  className="flex items-center space-x-2 rounded-xl bg-gradient-to-r from-indigo-500 to-violet-600 px-8 py-4 text-sm font-semibold text-white hover:from-indigo-600 hover:to-violet-700 shadow-xl shadow-indigo-500/10 transition active:scale-[0.98] cursor-pointer"
+                  href="/dashboard"
+                  className="flex items-center space-x-2 rounded-xl bg-[#3F6B4F] shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] px-7 py-3.5 text-sm font-mono font-semibold tracking-wide text-[#F2F0E8] hover:bg-[#4D7D5E] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.2)] transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FBF9F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0F0E]"
                 >
-                  <span>Get Started / Sign Up</span>
+                  <span>ENTER DASHBOARD</span>
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                   </svg>
                 </Link>
-                <button
-                  onClick={() => setShowLoginModal(true)}
-                  className="rounded-xl border border-zinc-800 bg-zinc-900/40 px-8 py-4 text-sm font-semibold text-zinc-300 hover:border-zinc-700 hover:bg-zinc-800/30 transition active:scale-[0.98] cursor-pointer"
+              ) : (
+                <>
+                  <Link
+                    href="/signup"
+                    className="flex items-center space-x-2 rounded-xl bg-[#3F6B4F] shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] px-7 py-3.5 text-sm font-mono font-semibold tracking-wide text-[#F2F0E8] hover:bg-[#4D7D5E] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.2)] transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FBF9F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0F0E]"
+                  >
+                    <span>GET STARTED</span>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </Link>
+                  <button
+                    onClick={() => setShowLoginModal(true)}
+                    className="rounded-xl bg-[#1A211C] shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] px-7 py-3.5 text-sm font-mono font-semibold tracking-wide text-[#9B9D96] hover:text-[#8FBF9F] hover:bg-[#222B25] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.05)] transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FBF9F] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D0F0E]"
+                  >
+                    SIGN IN
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Day Ruler card */}
+          <div className="w-full">
+            <div className="rounded-2xl border-none bg-[#1A211C] shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] p-8 pt-6">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-mono text-[11px] tracking-[0.15em] text-[#686C66]">
+                  TODAY&apos;S LEDGER
+                </span>
+                <span className="font-mono text-[11px] tracking-[0.1em] text-[#8FBF9F] font-semibold">
+                  96% ATTENDANCE
+                </span>
+              </div>
+
+              <DayRuler marks={heroMarks} variant="light" />
+
+              <div className="mt-8 pt-6 border-t border-[rgba(242,240,232,0.08)] flex items-center space-x-4">
+                <div className="h-11 w-11 rounded-md bg-[#222B25] flex items-center justify-center flex-shrink-0 shadow-[inset_2px_2px_5px_rgba(255,255,255,0.04)]">
+                  <span className="font-mono text-sm font-semibold text-[#8FBF9F]">AJ</span>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-display text-base font-semibold text-[#F2F0E8] truncate">
+                    Alex Johnson
+                  </h3>
+                  <p className="font-mono text-[11px] text-[#686C66] truncate">
+                    SENIOR PRODUCT DESIGNER
+                  </p>
+                </div>
+                <span className="ml-auto inline-flex items-center px-2.5 py-1 rounded-full bg-[#8FBF9F]/10 text-[#8FBF9F] text-[10px] font-mono font-semibold tracking-wide">
+                  ONLINE
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* FEATURES */}
+        <section className="px-6 py-24 max-w-7xl mx-auto w-full">
+          <div className="max-w-2xl mb-16">
+            <span className="font-mono text-[11px] tracking-[0.15em] text-[#686C66]">
+              WHAT&apos;S IN THE LEDGER
+            </span>
+            <h2 className="font-display text-3xl sm:text-4xl mt-3 text-[#F2F0E8]">
+              Everything you need to manage your workforce
+            </h2>
+            <p className="text-[#9B9D96] mt-4 text-lg leading-relaxed">
+              Six ledger entries, always in view. No feature buried, no balance
+              unaccounted for.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8">
+            {features.map((f, i) => (
+              <div
+                key={i}
+                className="rounded-2xl bg-[#1A211C] p-8 shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] hover:-translate-y-1 transition-transform group"
+              >
+                <span className="font-mono text-[10px] tracking-[0.15em] text-[#D6AA5C] font-semibold">
+                  {f.tag}
+                </span>
+                <h3 className="font-display text-xl mt-3 mb-2.5 text-[#F2F0E8] group-hover:text-[#8FBF9F] transition-colors">
+                  {f.title}
+                </h3>
+                <p className="text-[#9B9D96] leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* HOW IT WORKS — dark ledger panel with the ruler reprised */}
+        <section className="px-6 py-20 max-w-7xl mx-auto w-full">
+          <div className="rounded-[32px] bg-[#141A16] px-8 py-14 sm:px-14 sm:py-16 shadow-[inset_0px_0px_40px_rgba(0,0,0,0.5)] border border-[rgba(242,240,232,0.04)]">
+            <div className="max-w-2xl">
+              <span className="font-mono text-[11px] tracking-[0.15em] text-[#D6AA5C]">
+                THE DAILY CYCLE
+              </span>
+              <h2 className="font-display text-3xl sm:text-4xl mt-3 text-[#F2F0E8]">
+                How Dayflow works
+              </h2>
+              <p className="text-[#9B9D96] mt-3 text-lg">
+                One ledger, read the same way by employees and HR — start to close,
+                across a single working day.
+              </p>
+            </div>
+
+            <div className="mt-16">
+              <DayRuler marks={stepMarks} variant="dark" />
+            </div>
+          </div>
+        </section>
+
+        {/* EMPLOYEE VS HR */}
+        <section className="px-6 py-24 max-w-6xl mx-auto w-full">
+          <div className="max-w-2xl mb-16">
+            <span className="font-mono text-[11px] tracking-[0.15em] text-[#686C66]">
+              TWO STAMPS, ONE LEDGER
+            </span>
+            <h2 className="font-display text-3xl sm:text-4xl mt-3 text-[#F2F0E8]">
+              One platform, two distinct experiences
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Employee */}
+            <div className="rounded-3xl bg-[#1A211C] p-10 relative overflow-hidden shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)] border border-[rgba(242,240,232,0.04)]">
+              <div className="inline-flex items-center rounded-full border-2 border-dashed border-[#8FBF9F]/30 px-4 py-1.5 -rotate-2 mb-7">
+                <span className="font-mono text-xs font-semibold tracking-[0.1em] text-[#8FBF9F]">
+                  EMPLOYEE ACCESS
+                </span>
+              </div>
+              <h3 className="font-display text-2xl mb-6 text-[#F2F0E8] leading-snug">
+                Focus on your work.
+                <br />
+                We&apos;ll handle the rest.
+              </h3>
+              <ul className="space-y-4">
+                {[
+                  "Personal profile management",
+                  "Daily attendance logging",
+                  "Leave request submissions",
+                  "Salary & document visibility",
+                ].map((feat, i) => (
+                  <li key={i} className="flex items-center text-[#9B9D96]">
+                    <svg className="w-4 h-4 text-[#8FBF9F] mr-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    {feat}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* HR */}
+            <div className="rounded-3xl bg-[#1A211C] p-10 relative overflow-hidden shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)] border border-[rgba(242,240,232,0.04)]">
+              <div className="inline-flex items-center rounded-full border-2 border-dashed border-[#D6AA5C]/30 px-4 py-1.5 rotate-2 mb-7">
+                <span className="font-mono text-xs font-semibold tracking-[0.1em] text-[#D6AA5C]">
+                  HR &amp; ADMIN ACCESS
+                </span>
+              </div>
+              <h3 className="font-display text-2xl mb-6 text-[#F2F0E8] leading-snug">
+                Maintain control.
+                <br />
+                Empower your team.
+              </h3>
+              <ul className="space-y-4">
+                {[
+                  "Company-wide employee directory",
+                  "Attendance & shift oversight",
+                  "One-click leave approvals",
+                  "Payroll & compliance controls",
+                ].map((feat, i) => (
+                  <li key={i} className="flex items-center text-[#9B9D96]">
+                    <svg className="w-4 h-4 text-[#D6AA5C] mr-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    {feat}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* FINAL CTA */}
+        <section className="px-6 py-16 max-w-5xl mx-auto w-full">
+          <div className="rounded-[32px] bg-[#141A16] px-8 py-16 sm:px-16 sm:py-20 text-center shadow-[inset_0px_0px_40px_rgba(0,0,0,0.5)] border border-[rgba(242,240,232,0.04)]">
+            <span className="font-mono text-[11px] tracking-[0.15em] text-[#D6AA5C]">
+              CLOSE THE LEDGER
+            </span>
+            <h2 className="font-display text-3xl sm:text-5xl mt-4 mb-6 text-[#F2F0E8] tracking-tight">
+              Ready to streamline your HR?
+            </h2>
+            <p className="text-lg text-[#9B9D96] mb-10 max-w-2xl mx-auto">
+              Join the future of workspace management. Clear-eyed, well-kept, and
+              always accounted for.
+            </p>
+            <div className="flex justify-center">
+              {currentUser ? (
+                <Link
+                  href="/dashboard"
+                  className="rounded-xl bg-[#D6AA5C] shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] px-9 py-4 text-sm font-mono font-semibold tracking-wide text-[#0D0F0E] hover:bg-[#E2BB72] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.3)] transition-all cursor-pointer border-none"
                 >
-                  Sign In (Existing Accounts)
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Feature Highlights Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto mt-24">
-          <div className="rounded-xl border border-zinc-900 bg-zinc-900/40 p-6 space-y-3">
-            <div className="h-10 w-10 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+                  ENTER USER DASHBOARD
+                </Link>
+              ) : (
+                <Link
+                  href="/signup"
+                  className="rounded-xl bg-[#D6AA5C] shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] px-9 py-4 text-sm font-mono font-semibold tracking-wide text-[#0D0F0E] hover:bg-[#E2BB72] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[inset_2px_2px_6px_rgba(0,0,0,0.3)] transition-all cursor-pointer border-none"
+                >
+                  CREATE YOUR FREE ACCOUNT
+                </Link>
+              )}
             </div>
-            <h3 className="text-lg font-bold text-white">Supabase Authentication</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Passwords managed and encrypted safely using Supabase Auth. Never exposed to frontends or client apps.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-zinc-900 bg-zinc-900/40 p-6 space-y-3">
-            <div className="h-10 w-10 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-white">Role-Based Guarding</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Profiles strictly categorized into `employee` and `hr` with constraints verified at the database level.
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-zinc-900 bg-zinc-900/40 p-6 space-y-3">
-            <div className="h-10 w-10 rounded-lg bg-pink-500/10 text-pink-400 flex items-center justify-center">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-bold text-white">Express API Verification</h3>
-            <p className="text-sm text-zinc-400 leading-relaxed">
-              Strict endpoint checks validating Employee IDs, password criteria, emails, and roles server-side.
-            </p>
           </div>
         </section>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-900 py-8 z-10 bg-zinc-950/60 mt-auto">
-        <div className="mx-auto max-w-7xl px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-zinc-500">
-            &copy; {new Date().getFullYear()} Dayflow HRMS Project. All rights reserved.
+      <footer className="border-t border-[rgba(242,240,232,0.08)] py-10">
+        <div className="mx-auto max-w-7xl px-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center space-x-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#8FBF9F]" />
+            <span className="font-mono text-sm font-semibold tracking-[0.08em] text-[#F2F0E8]">
+              DAYFLOW
+            </span>
+          </div>
+          <p className="font-mono text-xs text-[#686C66]">
+            &copy; {new Date().getFullYear()} DAYFLOW HRMS PROJECT — ALL RIGHTS RESERVED
           </p>
-          <div className="flex space-x-6 text-xs text-zinc-400">
-            <a href="#" className="hover:text-white transition">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition">Terms of Service</a>
+          <div className="flex space-x-6 font-mono text-xs text-[#686C66]">
+            <a href="#" className="hover:text-[#8FBF9F] transition-colors">PRIVACY</a>
+            <a href="#" className="hover:text-[#8FBF9F] transition-colors">TERMS</a>
           </div>
         </div>
       </footer>
 
-      {/* Mock Login Modal */}
+      {/* Login Modal */}
       {showLoginModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-6 relative">
-            <button
-              onClick={() => setShowLoginModal(false)}
-              className="absolute right-4 top-4 text-zinc-400 hover:text-white cursor-pointer"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#000000]/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl bg-[#1A211C] relative shadow-[14px_14px_30px_rgba(0,0,0,0.50),-8px_-8px_22px_rgba(255,255,255,0.025),inset_2px_2px_6px_rgba(255,255,255,0.04)] border border-[rgba(242,240,232,0.04)]">
+            {/* perforated edge */}
+            <div
+              className="h-3 w-full rounded-t-3xl"
+              style={{
+                backgroundImage:
+                  "repeating-linear-gradient(90deg, rgba(242,240,232,0.08) 0, rgba(242,240,232,0.08) 6px, transparent 6px, transparent 14px)",
+                backgroundPosition: "top",
+                backgroundSize: "100% 2px",
+                backgroundRepeat: "no-repeat",
+                backgroundColor: "#222B25",
+              }}
+            />
+            <div className="p-8 sm:p-10 border-t border-t-[rgba(242,240,232,0.08)] rounded-b-3xl">
+              <button
+                onClick={() => setShowLoginModal(false)}
+                className="absolute right-6 top-7 h-9 w-9 rounded-md text-[#686C66] hover:text-[#8FBF9F] hover:bg-[#222B25] flex items-center justify-center transition-colors cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#8FBF9F]"
+                aria-label="Close"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
 
-            <div className="text-center">
-              <h3 className="text-2xl font-bold text-white">Sign In</h3>
-              <p className="text-xs text-zinc-400 mt-1">
-                Enter your credentials to access the simulated session
-              </p>
-            </div>
-
-            {loginError && (
-              <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-3 text-xs text-rose-400">
-                {loginError}
-              </div>
-            )}
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-                  Login ID / Email
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. OIJODO20260001 or name@company.com"
-                  value={loginIdOrEmail}
-                  onChange={(e) => setLoginIdOrEmail(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
-                />
+              <div className="mb-8 mt-1">
+                <span className="font-mono text-[11px] tracking-[0.15em] text-[#686C66]">
+                  DAYFLOW — ID CARD
+                </span>
+                <h3 className="font-display text-3xl mt-2 text-[#F2F0E8]">Welcome back</h3>
+                <p className="text-sm text-[#9B9D96] mt-1.5">Sign in to your account</p>
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showModalPassword ? "text" : "password"}
-                    required
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    className="w-full rounded-xl border border-zinc-800 bg-zinc-950 pl-4 pr-11 py-3 text-sm text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowModalPassword(!showModalPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition focus:outline-none cursor-pointer"
-                  >
-                    {showModalPassword ? (
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                      </svg>
-                    ) : (
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                    )}
-                  </button>
+              {loginError && (
+                <div className="rounded-md bg-[#D98282]/10 border border-[#D98282]/30 p-4 text-sm font-medium text-[#D98282] mb-6">
+                  {loginError}
                 </div>
-              </div>
+              )}
 
-              <button
-                type="submit"
-                disabled={isLoggingIn}
-                className={`w-full rounded-xl py-3 text-sm font-semibold text-white transition active:scale-[0.98] cursor-pointer flex items-center justify-center space-x-2 ${
-                  isLoggingIn
-                    ? "bg-zinc-800 text-zinc-500 border border-zinc-700 cursor-not-allowed shadow-none"
-                    : "bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-750"
-                }`}
-              >
-                {isLoggingIn ? (
-                  <>
-                    <svg
-                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
+              <form onSubmit={handleLogin} className="space-y-6">
+                <div>
+                  <label className="block font-mono text-[10px] font-semibold text-[#686C66] tracking-[0.1em] mb-2">
+                    LOGIN ID / EMAIL
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. OIJODO20260001 or name@company.com"
+                    value={loginIdOrEmail}
+                    onChange={(e) => setLoginIdOrEmail(e.target.value)}
+                    className="w-full rounded-xl border-none shadow-[inset_3px_3px_7px_rgba(0,0,0,0.35),inset_-2px_-2px_5px_rgba(255,255,255,0.02)] bg-[#141A16] px-4 py-3.5 text-sm font-medium text-[#F2F0E8] placeholder-[#686C66] focus:ring-2 focus:ring-[#8FBF9F] outline-none transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-mono text-[10px] font-semibold text-[#686C66] tracking-[0.1em] mb-2">
+                    PASSWORD
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showModalPassword ? "text" : "password"}
+                      required
+                      placeholder="••••••••"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="w-full rounded-xl border-none shadow-[inset_3px_3px_7px_rgba(0,0,0,0.35),inset_-2px_-2px_5px_rgba(255,255,255,0.02)] bg-[#141A16] pl-4 pr-11 py-3.5 text-sm font-medium text-[#F2F0E8] placeholder-[#686C66] focus:ring-2 focus:ring-[#8FBF9F] outline-none transition-all"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowModalPassword(!showModalPassword)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#686C66] hover:text-[#8FBF9F] transition-colors cursor-pointer"
+                      aria-label={showModalPassword ? "Hide password" : "Show password"}
                     >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      />
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    <span>Signing In...</span>
-                  </>
-                ) : (
-                  <span>Sign In</span>
-                )}
-              </button>
-            </form>
+                      {showModalPassword ? (
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                      ) : (
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
 
-            <div className="text-center text-xs text-zinc-500 border-t border-zinc-800/80 pt-4">
-              Don&apos;t have an account?{" "}
-              <button
-                onClick={() => {
-                  setShowLoginModal(false);
-                  window.location.href = "/signup";
-                }}
-                className="text-indigo-400 hover:underline cursor-pointer"
-              >
-                Register
-              </button>
+                <button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  className={`w-full rounded-xl py-3.5 text-sm font-mono font-semibold tracking-wide transition-all flex items-center justify-center space-x-2 mt-2 border-none ${isLoggingIn
+                    ? "bg-[#222B25] text-[#9B9D96] cursor-not-allowed"
+                    : "bg-[#3F6B4F] text-[#F2F0E8] hover:bg-[#4D7D5E] shadow-[10px_10px_24px_rgba(0,0,0,0.45),-8px_-8px_20px_rgba(255,255,255,0.025),inset_2px_2px_5px_rgba(255,255,255,0.035)] hover:-translate-y-0.5 active:translate-y-0 active:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.2)] cursor-pointer"
+                    }`}
+                >
+                  {isLoggingIn ? (
+                    <>
+                      <svg className="motion-safe:animate-spin -ml-1 mr-1 h-4 w-4 text-[#9B9D96]" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>SIGNING IN...</span>
+                    </>
+                  ) : (
+                    <span>SIGN IN</span>
+                  )}
+                </button>
+              </form>
+
+              <div className="text-center text-sm text-[#9B9D96] pt-8 mt-6 border-t border-[rgba(242,240,232,0.08)]">
+                Don&apos;t have an account?{" "}
+                <button
+                  onClick={() => {
+                    setShowLoginModal(false);
+                    window.location.href = "/signup";
+                  }}
+                  className="text-[#8FBF9F] hover:text-[#B7F397] font-semibold transition-colors cursor-pointer"
+                >
+                  Register
+                </button>
+              </div>
             </div>
           </div>
         </div>
