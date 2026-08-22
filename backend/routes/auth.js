@@ -4,7 +4,6 @@ const { supabase, supabaseAdmin } = require('../config/supabase');
 const {
   validateEmail,
   validatePassword,
-  validateEmployeeId,
   validateRole,
   validatePhone,
   validateCompanyLogo
@@ -16,183 +15,376 @@ const {
 } = require('../services/store');
 
 /**
- * Generate a random initial password for new employees
+ * Generate a random secure initial password for new employees
  */
 function generateInitialPassword() {
-  const charsUpper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const charsLower = 'abcdefghijkmnopqrstuvwxyz';
-  const charsNum = '23456789';
-  const charsSpec = '!@#$%&*';
+  const length = 12;
+  const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijkmnopqrstuvwxyz';
+  const numbers = '23456789';
+  const symbols = '!@#$%&*?';
+  const allChars = uppercase + lowercase + numbers + symbols;
 
-  const r1 = charsUpper[Math.floor(Math.random() * charsUpper.length)];
-  const r2 = charsLower[Math.floor(Math.random() * charsLower.length)];
-  const r3 = charsLower[Math.floor(Math.random() * charsLower.length)];
-  const r4 = charsNum[Math.floor(Math.random() * charsNum.length)];
-  const r5 = charsNum[Math.floor(Math.random() * charsNum.length)];
-  const r6 = charsSpec[Math.floor(Math.random() * charsSpec.length)];
-  const r7 = charsUpper[Math.floor(Math.random() * charsUpper.length)];
-  const r8 = charsNum[Math.floor(Math.random() * charsNum.length)];
+  let password = '';
+  // Ensure at least one of each required class
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  password += symbols[Math.floor(Math.random() * symbols.length)];
 
-  return `Dayflow#${r1}${r2}${r4}${r6}`;
+  for (let i = 4; i < length; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+
+  // Shuffle the password
+  return password.split('').sort(() => 0.5 - Math.random()).join('');
+}
+
+/**
+ * Helper to upload base64 company logo to Supabase Storage
+ */
+async function uploadCompanyLogo(base64Data, companyCode) {
+  if (!base64Data) return '';
+  if (base64Data.startsWith('http://') || base64Data.startsWith('https://')) {
+    return base64Data;
+  }
+
+  try {
+    const matches = base64Data.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return base64Data; // Return as-is if not standard base64 format
+    }
+    const contentType = matches[1];
+    const buffer = Buffer.from(matches[2], 'base64');
+    
+    const ext = contentType.split('/')[1] || 'png';
+    const fileName = `logo-${companyCode.toLowerCase()}-${Date.now()}.${ext}`;
+
+    // Try to create the bucket if it doesn't exist
+    try {
+      await supabaseAdmin.storage.createBucket('company-logos', { public: true });
+    } catch (e) {
+      // Bucket likely already exists
+    }
+
+    const { data, error } = await supabaseAdmin.storage
+      .from('company-logos')
+      .upload(fileName, buffer, {
+        contentType,
+        upsert: true
+      });
+
+    if (error) {
+      console.error('Supabase storage upload error:', error.message);
+      return base64Data; // Fallback to base64 string
+    }
+
+    const { data: urlData } = supabaseAdmin.storage
+      .from('company-logos')
+      .getPublicUrl(fileName);
+
+    return urlData?.publicUrl || base64Data;
+  } catch (err) {
+    console.error('Error during company logo upload:', err);
+    return base64Data; // Fallback
+  }
 }
 
 /**
  * @route   POST /api/auth/signup
- * @desc    HR / Admin Employee Account Creation
- *          Automatically generates unique Login ID ([CompanyCode][Initials][Year][Serial])
- *          and initial password.
- * @access  Public / HR Authorized
+ * @desc    Public HR signup (Registers company and HR manager user)
+ * @access  Public
  */
 router.post('/signup', async (req, res) => {
   try {
     const {
       companyName,
       companyLogo,
-      fullName,
-      employeeName,
+      name,
       email,
       phone,
       password,
-      role = 'employee',
-      companyCode
+      confirmPassword
     } = req.body;
 
-    const name = (fullName || employeeName || '').trim();
-
-    // 1. Validations
+    // 1. Validation
     if (!companyName || !companyName.trim()) {
       return res.status(400).json({ error: 'Company Name is required.' });
     }
-
-    if (!name) {
-      return res.status(400).json({ error: 'Employee/User Name is required.' });
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'HR Manager Name is required.' });
     }
-
     if (!email || !validateEmail(email)) {
       return res.status(400).json({ error: 'A valid email address is required.' });
     }
-
     if (!phone || !validatePhone(phone)) {
       return res.status(400).json({ error: 'A valid phone number is required.' });
     }
-
+    if (!password || !validatePassword(password)) {
+      return res.status(400).json({
+        error: 'Password must be at least 8 characters long, containing uppercase, lowercase, digit, and special character.'
+      });
+    }
+    if (password !== confirmPassword) {
+      return res.status(400).json({ error: 'Passwords do not match.' });
+    }
     if (companyLogo && !validateCompanyLogo(companyLogo)) {
-      return res.status(400).json({ error: 'Invalid company logo format or image size exceeds 5MB.' });
+      return res.status(400).json({ error: 'Company logo must be an image under 5MB.' });
     }
 
-    if (role && !validateRole(role)) {
-      return res.status(400).json({ error: 'Invalid role. Role must be either "employee" or "hr".' });
-    }
-
-    // 2. Check email uniqueness
     const normalizedEmail = email.trim().toLowerCase();
-    const existingProfile = await getProfileByLoginIdOrEmail(normalizedEmail);
-    if (existingProfile) {
-      return res.status(400).json({ error: 'An employee with this email address is already registered.' });
+
+    // 2. Check for duplicate email
+    const existingUser = await getProfileByLoginIdOrEmail(normalizedEmail);
+    if (existingUser) {
+      return res.status(400).json({ error: 'An account with this email is already registered.' });
     }
 
-    // 3. Automatically Generate Login ID
+    // 3. Generate unique Employee ID for the HR Officer
     const loginIdGen = await generateNextLoginId({
       companyName: companyName.trim(),
-      companyCode: companyCode ? companyCode.trim() : '',
-      fullName: name,
+      fullName: name.trim(),
       joiningYear: new Date().getFullYear()
     });
 
-    const generatedLoginId = loginIdGen.loginId;
+    const generatedEmployeeId = loginIdGen.loginId;
     const finalCompanyCode = loginIdGen.companyCode;
 
-    // 4. Initial Password handling
-    let initialPassword = password ? password.trim() : '';
-    if (!initialPassword) {
-      initialPassword = generateInitialPassword();
-    } else {
-      if (!validatePassword(initialPassword)) {
-        return res.status(400).json({
-          error: 'Password is too weak. It must be at least 8 characters long, containing uppercase, lowercase, number, and special character.'
-        });
-      }
+    // 4. Upload Company Logo if present
+    let finalLogoUrl = '';
+    if (companyLogo) {
+      finalLogoUrl = await uploadCompanyLogo(companyLogo, finalCompanyCode);
     }
 
-    // 5. Register in Supabase Auth
+    // 5. Register User in Supabase Auth
     let authUser = null;
+    let authError = null;
+
     try {
-      // Create user directly via admin API so email is confirmed and employee can log in immediately
-      const { data: adminAuthData, error: adminAuthErr } = await supabaseAdmin.auth.admin.createUser({
+      // Use standard signup
+      const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
-        password: initialPassword,
-        email_confirm: true,
-        user_metadata: {
-          full_name: name,
-          employee_id: generatedLoginId,
-          role: role.toLowerCase()
+        password: password,
+        options: {
+          data: {
+            full_name: name.trim(),
+            employee_id: generatedEmployeeId,
+            role: 'hr'
+          }
         }
       });
-
-      if (!adminAuthErr && adminAuthData.user) {
-        authUser = adminAuthData.user;
-      } else {
-        // Fallback to standard signUp if admin API fails
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: normalizedEmail,
-          password: initialPassword
-        });
-        if (!signUpError && signUpData.user) {
-          authUser = signUpData.user;
-        }
-      }
+      authUser = data.user;
+      authError = error;
     } catch (e) {
-      console.warn('Supabase Auth warning during signup:', e.message);
+      authError = e;
     }
 
-    const userId = authUser ? authUser.id : `usr-${Date.now()}`;
+    if (authError || !authUser) {
+      console.error('Supabase signUp error:', authError);
+      return res.status(400).json({ error: authError?.message || 'Authentication signup failed.' });
+    }
 
-    // 6. Save Profile Record
-    const profileRecord = {
-      id: userId,
-      employee_id: generatedLoginId,
-      role: role.toLowerCase(),
-      email: normalizedEmail,
-      full_name: name,
-      phone: phone.trim(),
-      company_name: companyName.trim(),
-      company_code: finalCompanyCode,
-      company_logo: companyLogo || '',
-      department: role.toLowerCase() === 'hr' ? 'Human Resources' : 'Engineering',
-      position: role.toLowerCase() === 'hr' ? 'HR Specialist' : 'Team Member',
-      avatar_url: '',
-      created_at: new Date().toISOString()
+    // 6. Create Company record in database
+    const companyRecord = {
+      name: companyName.trim(),
+      code: finalCompanyCode,
+      logo_url: finalLogoUrl
     };
 
     try {
-      await supabaseAdmin.from('profiles').insert(profileRecord);
-    } catch (e) {
-      console.warn('Supabase profile insertion warning:', e.message);
+      // Verify if the company code already exists to avoid unique constraint violations
+      const { data: existingCompany, error: checkErr } = await supabaseAdmin
+        .from('companies')
+        .select('id')
+        .eq('code', finalCompanyCode)
+        .maybeSingle();
+
+      if (checkErr) throw checkErr;
+
+      if (!existingCompany) {
+        const { error: compError } = await supabaseAdmin.from('companies').insert(companyRecord);
+        if (compError) throw compError;
+      }
+    } catch (compErr) {
+      console.error('Failed to register company in DB:', compErr.message);
+      // Rollback Auth User
+      await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+      return res.status(500).json({ error: `Failed to register company. It may already exist or there was a database error.` });
     }
 
-    // Always update memory store fallback
+    // 7. Create profile in Database
+    const profileRecord = {
+      id: authUser.id,
+      employee_id: generatedEmployeeId,
+      role: 'hr',
+      email: normalizedEmail,
+      full_name: name.trim(),
+      phone: phone.trim(),
+      company_name: companyName.trim(),
+      company_code: finalCompanyCode,
+      company_logo: finalLogoUrl,
+      department: 'Human Resources',
+      position: 'HR Manager',
+      avatar_url: '',
+      joining_year: new Date().getFullYear(),
+      must_change_password: false,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      const { error: dbError } = await supabaseAdmin.from('profiles').insert(profileRecord);
+      if (dbError) throw dbError;
+    } catch (dbErr) {
+      console.error('Failed to create DB profile, rolling back company and auth user:', dbErr.message);
+      // Rollback Auth User
+      await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+      // Note: we can keep company or delete it. Since it might be shared, keeping it is standard.
+      return res.status(500).json({ error: 'Failed to complete database registration.' });
+    }
+
+    // Add to memory store fallback
     memoryStore.profiles.unshift(profileRecord);
 
-    // 7. Return Response with Generated Credentials
+    return res.status(201).json({
+      message: 'HR Manager account and company created successfully.',
+      user: {
+        id: authUser.id,
+        email: normalizedEmail,
+        employeeId: generatedEmployeeId,
+        role: 'hr',
+        fullName: name.trim(),
+        companyName: companyName.trim(),
+        companyLogo: finalLogoUrl
+      }
+    });
+
+  } catch (err) {
+    console.error('Server error during HR signup:', err);
+    return res.status(500).json({ error: 'An unexpected server error occurred. Please try again.' });
+  }
+});
+
+/**
+ * @route   POST /api/auth/create-employee
+ * @desc    HR-controlled employee creation (Generates credentials automatically)
+ * @access  HR Authenticated / Admin
+ */
+router.post('/create-employee', async (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      phone,
+      department = 'Engineering',
+      position = 'Software Engineer',
+      hrUserId // ID of the HR user creating the account
+    } = req.body;
+
+    // 1. Validation
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Employee Name is required.' });
+    }
+    if (!email || !validateEmail(email)) {
+      return res.status(400).json({ error: 'A valid email address is required.' });
+    }
+    if (!phone || !validatePhone(phone)) {
+      return res.status(400).json({ error: 'A valid phone number is required.' });
+    }
+    if (!hrUserId) {
+      return res.status(400).json({ error: 'HR Creator identity is required.' });
+    }
+
+    // 2. Fetch HR Creator Profile to link company
+    const { data: hrProfile, error: hrErr } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', hrUserId)
+      .maybeSingle();
+
+    const finalHrProfile = hrProfile || memoryStore.profiles.find(p => p.id === hrUserId);
+    if (!finalHrProfile || finalHrProfile.role !== 'hr') {
+      return res.status(403).json({ error: 'Authorized HR credentials are required to create employee accounts.' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // 3. Verify duplicate email
+    const existingUser = await getProfileByLoginIdOrEmail(normalizedEmail);
+    if (existingUser) {
+      return res.status(400).json({ error: 'An employee with this email is already registered.' });
+    }
+
+    // 4. Generate Employee ID
+    const loginIdGen = await generateNextLoginId({
+      companyName: finalHrProfile.company_name,
+      fullName: name.trim(),
+      joiningYear: new Date().getFullYear()
+    });
+    
+    const generatedEmployeeId = loginIdGen.loginId;
+
+    // 5. Generate secure initial password
+    const initialPassword = generateInitialPassword();
+
+    // 6. Register Employee in Supabase Auth via Admin client (auto-confirm email)
+    const { data: adminAuthData, error: adminAuthErr } = await supabaseAdmin.auth.admin.createUser({
+      email: normalizedEmail,
+      password: initialPassword,
+      email_confirm: true,
+      user_metadata: {
+        full_name: name.trim(),
+        employee_id: generatedEmployeeId,
+        role: 'employee'
+      }
+    });
+
+    if (adminAuthErr || !adminAuthData.user) {
+      console.error('Supabase admin.createUser error:', adminAuthErr);
+      return res.status(400).json({ error: adminAuthErr?.message || 'Failed to create employee auth account.' });
+    }
+
+    const authUser = adminAuthData.user;
+
+    // 7. Save Profile Record
+    const profileRecord = {
+      id: authUser.id,
+      employee_id: generatedEmployeeId,
+      role: 'employee',
+      email: normalizedEmail,
+      full_name: name.trim(),
+      phone: phone.trim(),
+      company_name: finalHrProfile.company_name,
+      company_code: finalHrProfile.company_code,
+      company_logo: finalHrProfile.company_logo || '',
+      department: department.trim(),
+      position: position.trim(),
+      avatar_url: '',
+      joining_year: new Date().getFullYear(),
+      must_change_password: true, // Requires first-login password change
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    try {
+      const { error: dbError } = await supabaseAdmin.from('profiles').insert(profileRecord);
+      if (dbError) throw dbError;
+    } catch (dbErr) {
+      console.error('Failed to create DB profile for employee, rolling back user auth:', dbErr.message);
+      await supabaseAdmin.auth.admin.deleteUser(authUser.id);
+      return res.status(500).json({ error: 'Failed to complete database profile registration.' });
+    }
+
+    // Add to memory store fallback
+    memoryStore.profiles.unshift(profileRecord);
+
     return res.status(201).json({
       message: 'Employee account created successfully.',
       credentials: {
-        loginId: generatedLoginId,
+        loginId: generatedEmployeeId,
         initialPassword: initialPassword,
         email: normalizedEmail,
-        fullName: name,
-        companyName: companyName.trim(),
-        companyCode: finalCompanyCode,
-        role: role.toLowerCase()
-      },
-      user: {
-        id: userId,
-        employeeId: generatedLoginId,
-        email: normalizedEmail,
-        role: role.toLowerCase(),
-        fullName: name,
-        companyName: companyName.trim(),
-        companyLogo: companyLogo || ''
+        fullName: name.trim()
       }
     });
 
@@ -209,19 +401,19 @@ router.post('/signup', async (req, res) => {
  */
 router.post('/signin', async (req, res) => {
   try {
-    const { email, loginId, loginIdOrEmail, password } = req.body;
-    const identifier = (loginIdOrEmail || email || loginId || '').trim();
+    const { loginIdOrEmail, password } = req.body;
 
-    if (!identifier || !password) {
+    if (!loginIdOrEmail || !password) {
       return res.status(400).json({ error: 'Login ID / Email and password are required.' });
     }
 
-    // 1. Resolve target email if user provided a Login ID
+    const identifier = loginIdOrEmail.trim();
+
+    // 1. Resolve email if Employee ID is passed
     let targetEmail = identifier.toLowerCase();
     let userProfile = null;
 
     if (!identifier.includes('@')) {
-      // It's a generated Login ID (e.g. OIJODO20260001 or EMP-001)
       userProfile = await getProfileByLoginIdOrEmail(identifier);
       if (!userProfile) {
         return res.status(400).json({ error: 'Invalid Login ID or password.' });
@@ -231,7 +423,7 @@ router.post('/signin', async (req, res) => {
       userProfile = await getProfileByLoginIdOrEmail(targetEmail);
     }
 
-    // 2. Authenticate via Supabase Auth
+    // 2. Sign In via Supabase Auth
     let signInData = null;
     let signInError = null;
 
@@ -246,15 +438,14 @@ router.post('/signin', async (req, res) => {
       signInError = e;
     }
 
-    // If Supabase Auth failed or isn't connected, fallback to profile record check
     if (signInError || !signInData?.user) {
-      if (userProfile) {
-        // Successful fallback authentication
+      // Fallback auth verification for mock user profiles in development
+      if (userProfile && password === 'Dayflow#MockPass') {
         return res.status(200).json({
-          message: 'Login successful.',
+          message: 'Login successful (development fallback).',
           session: {
-            access_token: `mock-jwt-token-${userProfile.id}`,
-            refresh_token: `mock-refresh-token-${userProfile.id}`,
+            access_token: `mock-token-${userProfile.id}`,
+            refresh_token: `mock-refresh-${userProfile.id}`,
             expires_at: Math.floor(Date.now() / 1000) + 86400
           },
           user: {
@@ -263,13 +454,14 @@ router.post('/signin', async (req, res) => {
             employeeId: userProfile.employee_id,
             role: userProfile.role || 'employee',
             fullName: userProfile.full_name,
-            companyName: userProfile.company_name || 'Odoo India',
-            companyLogo: userProfile.company_logo || ''
+            companyName: userProfile.company_name,
+            companyLogo: userProfile.company_logo,
+            must_change_password: userProfile.must_change_password ?? false
           }
         });
       }
 
-      console.error('Sign-in error:', signInError);
+      console.error('Supabase sign-in error:', signInError?.message);
       return res.status(400).json({ error: 'Invalid Login ID / Email or password.' });
     }
 
@@ -293,8 +485,9 @@ router.post('/signin', async (req, res) => {
         employeeId: userProfile ? userProfile.employee_id : null,
         role: userProfile ? userProfile.role : 'employee',
         fullName: userProfile ? userProfile.full_name : '',
-        companyName: userProfile ? userProfile.company_name : 'Odoo India',
-        companyLogo: userProfile ? userProfile.company_logo : ''
+        companyName: userProfile ? userProfile.company_name : '',
+        companyLogo: userProfile ? userProfile.company_logo : '',
+        must_change_password: userProfile ? (userProfile.must_change_password ?? false) : false
       }
     });
 
@@ -306,7 +499,7 @@ router.post('/signin', async (req, res) => {
 
 /**
  * @route   POST /api/auth/change-password
- * @desc    Allow employees to change their initial/system password
+ * @desc    Allow employees to change their password (e.g., initial password on first login)
  * @access  Authenticated / Public with valid identifier
  */
 router.post('/change-password', async (req, res) => {
@@ -323,7 +516,7 @@ router.post('/change-password', async (req, res) => {
       return res.status(400).json({ error: 'User ID or email is required to update password.' });
     }
 
-    // Search profile
+    // Resolve profile
     let targetProfile = null;
     if (userId) {
       const { data } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).maybeSingle();
@@ -332,18 +525,40 @@ router.post('/change-password', async (req, res) => {
       targetProfile = await getProfileByLoginIdOrEmail(email);
     }
 
-    if (targetProfile && targetProfile.id) {
-      try {
-        await supabaseAdmin.auth.admin.updateUserById(targetProfile.id, {
-          password: newPassword
-        });
-      } catch (e) {
-        console.warn('Supabase Auth password update warning:', e.message);
-      }
+    if (!targetProfile) {
+      return res.status(400).json({ error: 'User profile not found.' });
+    }
+
+    // 1. Update password in Supabase Auth
+    try {
+      const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(targetProfile.id, {
+        password: newPassword
+      });
+      if (authErr) throw authErr;
+    } catch (e) {
+      console.error('Supabase Auth update password failed:', e.message);
+      return res.status(500).json({ error: e.message || 'Failed to update credentials in authentication system.' });
+    }
+
+    // 2. Set must_change_password to false in DB
+    try {
+      await supabaseAdmin
+        .from('profiles')
+        .update({ must_change_password: false, updated_at: new Date().toISOString() })
+        .eq('id', targetProfile.id);
+    } catch (e) {
+      console.warn('Failed to update must_change_password in database:', e.message);
+    }
+
+    // Update in memory fallback
+    const memProfile = memoryStore.profiles.find(p => p.id === targetProfile.id);
+    if (memProfile) {
+      memProfile.must_change_password = false;
+      memProfile.updated_at = new Date().toISOString();
     }
 
     return res.status(200).json({
-      message: 'Password updated successfully. You can now log in with your new password.'
+      message: 'Password updated successfully. You can now use your new password.'
     });
   } catch (err) {
     console.error('Server error during password change:', err);

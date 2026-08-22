@@ -110,6 +110,24 @@ export default function DashboardPage() {
   const [showNewPasswordToggle, setShowNewPasswordToggle] = useState(false);
   const [changePasswordError, setChangePasswordError] = useState("");
 
+  // Add Employee Modal States
+  const [showAddEmployeeModal, setShowAddEmployeeModal] = useState(false);
+  const [addEmployeeForm, setAddEmployeeForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    department: "Engineering",
+    position: "Software Engineer"
+  });
+  const [addEmployeeError, setAddEmployeeError] = useState("");
+  const [addEmployeeSuccess, setAddEmployeeSuccess] = useState<{
+    loginId: string;
+    initialPassword: string;
+    email: string;
+    fullName: string;
+  } | null>(null);
+  const [addEmployeeCopied, setAddEmployeeCopied] = useState(false);
+
   // Form Field Inputs
   const [profileForm, setProfileForm] = useState({
     full_name: "",
@@ -150,6 +168,9 @@ export default function DashboardPage() {
       if (profRes.ok) {
         const pData = await profRes.json();
         setProfile(pData.profile);
+        if (pData.profile?.must_change_password) {
+          setShowChangePasswordModal(true);
+        }
         setProfileForm({
           full_name: pData.profile?.full_name || "",
           department: pData.profile?.department || "Engineering",
@@ -192,30 +213,32 @@ export default function DashboardPage() {
 
   // 2. Fetch Admin / HR Data
   const fetchAdminData = useCallback(async () => {
+    if (!currentUser?.id) return;
+    const hrId = currentUser.id;
     try {
       // All Employees
-      const empRes = await fetch(`${API_BASE}/api/admin/employees`);
+      const empRes = await fetch(`${API_BASE}/api/admin/employees?hrUserId=${hrId}`);
       if (empRes.ok) {
         const eData = await empRes.json();
         setAllEmployees(eData.employees || []);
       }
 
       // All Attendance
-      const attRes = await fetch(`${API_BASE}/api/attendance/all`);
+      const attRes = await fetch(`${API_BASE}/api/attendance/all?hrUserId=${hrId}`);
       if (attRes.ok) {
         const aData = await attRes.json();
         setAllAttendance(aData.records || []);
       }
 
       // All Leaves
-      const leavesRes = await fetch(`${API_BASE}/api/leaves/all`);
+      const leavesRes = await fetch(`${API_BASE}/api/leaves/all?hrUserId=${hrId}`);
       if (leavesRes.ok) {
         const lData = await leavesRes.json();
         setAllLeaves(lData.requests || []);
       }
 
       // Overview Stats
-      const statsRes = await fetch(`${API_BASE}/api/admin/overview`);
+      const statsRes = await fetch(`${API_BASE}/api/admin/overview?hrUserId=${hrId}`);
       if (statsRes.ok) {
         const sData = await statsRes.json();
         setOverviewStats(sData.stats);
@@ -223,7 +246,7 @@ export default function DashboardPage() {
     } catch (e) {
       console.error("Error fetching admin data:", e);
     }
-  }, []);
+  }, [currentUser]);
 
   // Initial Auth Check
   useEffect(() => {
@@ -364,11 +387,80 @@ export default function DashboardPage() {
       setShowChangePasswordModal(false);
       setNewPasswordInput("");
       setConfirmNewPasswordInput("");
+      
+      // Update local profile state
+      if (profile) {
+        setProfile({ ...profile, must_change_password: false });
+      }
     } catch (err: any) {
       setChangePasswordError(err.message || "Failed to update password.");
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleAddEmployee = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddEmployeeError("");
+    setAddEmployeeSuccess(null);
+
+    if (!addEmployeeForm.name.trim() || !addEmployeeForm.email.trim() || !addEmployeeForm.phone.trim()) {
+      setAddEmployeeError("Name, Email, and Phone number are required.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(addEmployeeForm.email.trim())) {
+      setAddEmployeeError("Please enter a valid email address.");
+      return;
+    }
+
+    const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\./0-9]{6,15}$/;
+    if (!phoneRegex.test(addEmployeeForm.phone.trim())) {
+      setAddEmployeeError("Please enter a valid phone number format.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/create-employee`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: addEmployeeForm.name.trim(),
+          email: addEmployeeForm.email.trim(),
+          phone: addEmployeeForm.phone.trim(),
+          department: addEmployeeForm.department.trim(),
+          position: addEmployeeForm.position.trim(),
+          hrUserId: currentUser?.id
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to create employee.");
+
+      setAddEmployeeSuccess(data.credentials);
+      setAddEmployeeForm({
+        name: "",
+        email: "",
+        phone: "",
+        department: "Engineering",
+        position: "Software Engineer"
+      });
+      fetchAdminData();
+      showToast("Employee account created successfully!");
+    } catch (err: any) {
+      setAddEmployeeError(err.message || "Failed to create employee.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const copyEmployeeCredentials = () => {
+    if (!addEmployeeSuccess) return;
+    const text = `Dayflow Employee Credentials:\nName: ${addEmployeeSuccess.fullName}\nEmail: ${addEmployeeSuccess.email}\nLogin ID: ${addEmployeeSuccess.loginId}\nInitial Password: ${addEmployeeSuccess.initialPassword}`;
+    navigator.clipboard.writeText(text);
+    setAddEmployeeCopied(true);
+    setTimeout(() => setAddEmployeeCopied(false), 3000);
   };
 
   const handleApplyLeave = async (e: React.FormEvent) => {
@@ -581,7 +673,12 @@ export default function DashboardPage() {
               </button>
 
               <button
-                onClick={() => router.push("/signup")}
+                onClick={() => {
+                  setActiveTab("employees");
+                  setAddEmployeeSuccess(null);
+                  setAddEmployeeError("");
+                  setShowAddEmployeeModal(true);
+                }}
                 className="w-full flex items-center space-x-3 rounded-xl px-4 py-3 text-sm font-medium text-emerald-400 hover:bg-emerald-500/10 border border-emerald-500/20 transition cursor-pointer"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1085,13 +1182,25 @@ export default function DashboardPage() {
                     <h3 className="text-xl font-bold text-white">Employee Directory</h3>
                     <p className="text-xs text-zinc-400 mt-0.5">View employee list and switch workspace context</p>
                   </div>
-                  <input
-                    type="text"
-                    placeholder="Search by name, ID, or department..."
-                    value={searchEmployeeQuery}
-                    onChange={(e) => setSearchEmployeeQuery(e.target.value)}
-                    className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none min-w-[280px]"
-                  />
+                  <div className="flex items-center space-x-3 shrink-0">
+                    <input
+                      type="text"
+                      placeholder="Search by name, ID, or department..."
+                      value={searchEmployeeQuery}
+                      onChange={(e) => setSearchEmployeeQuery(e.target.value)}
+                      className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-none min-w-[200px]"
+                    />
+                    <button
+                      onClick={() => {
+                        setAddEmployeeSuccess(null);
+                        setAddEmployeeError("");
+                        setShowAddEmployeeModal(true);
+                      }}
+                      className="rounded-md bg-purple-600 hover:bg-purple-750 px-4 py-2 text-xs font-semibold text-white transition cursor-pointer"
+                    >
+                      + Add Employee
+                    </button>
+                  </div>
                 </div>
 
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 overflow-hidden shadow-xl">
@@ -1431,16 +1540,24 @@ export default function DashboardPage() {
       {/* MODAL 4: CHANGE PASSWORD */}
       {showChangePasswordModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-5 relative">
-            <button
-              onClick={() => setShowChangePasswordModal(false)}
-              className="absolute right-4 top-4 text-zinc-400 hover:text-white cursor-pointer"
-            >
-              ✕
-            </button>
+          <div className="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-5 relative">
+            {!profile?.must_change_password && (
+              <button
+                onClick={() => setShowChangePasswordModal(false)}
+                className="absolute right-4 top-4 text-zinc-400 hover:text-white cursor-pointer"
+              >
+                ✕
+              </button>
+            )}
             <div>
-              <h3 className="text-xl font-bold text-white">Change Password</h3>
-              <p className="text-xs text-zinc-400 mt-1">Update your system password securely</p>
+              <h3 className="text-xl font-bold text-white">
+                {profile?.must_change_password ? "Secure Your Account" : "Change Password"}
+              </h3>
+              <p className="text-xs text-zinc-400 mt-1">
+                {profile?.must_change_password
+                  ? "First login detected. You must change your system-generated password to continue."
+                  : "Update your system password securely"}
+              </p>
             </div>
 
             {changePasswordError && (
@@ -1488,13 +1605,15 @@ export default function DashboardPage() {
               </div>
 
               <div className="flex justify-end space-x-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowChangePasswordModal(false)}
-                  className="rounded-xl border border-zinc-800 px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 transition cursor-pointer"
-                >
-                  Cancel
-                </button>
+                {!profile?.must_change_password && (
+                  <button
+                    type="button"
+                    onClick={() => setShowChangePasswordModal(false)}
+                    className="rounded-md border border-zinc-800 px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 transition cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
                 <button
                   type="submit"
                   disabled={actionLoading}
@@ -1504,6 +1623,162 @@ export default function DashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: ADD EMPLOYEE (HR ONLY) */}
+      {showAddEmployeeModal && isHr && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-md border border-zinc-800 bg-zinc-900 p-6 shadow-2xl space-y-5 relative">
+            <button
+              onClick={() => setShowAddEmployeeModal(false)}
+              className="absolute right-4 top-4 text-zinc-400 hover:text-white cursor-pointer"
+            >
+              ✕
+            </button>
+            <div>
+              <h3 className="text-xl font-bold text-white">Create Employee Account</h3>
+              <p className="text-xs text-zinc-400 mt-1">Add a new team member and generate system credentials</p>
+            </div>
+
+            {addEmployeeError && (
+              <div className="rounded-md bg-red-950/30 border border-red-900/50 p-3 text-xs text-red-400">
+                {addEmployeeError}
+              </div>
+            )}
+
+            {addEmployeeSuccess ? (
+              <div className="space-y-4">
+                <div className="rounded-md bg-emerald-950/20 border border-emerald-900/30 p-4 text-xs text-emerald-400 font-medium">
+                  Employee account created successfully! Please share these credentials with the employee.
+                </div>
+
+                <div className="rounded-md border border-zinc-800 bg-zinc-950 p-4 space-y-3 font-sans text-xs">
+                  <div className="flex justify-between border-b border-zinc-850 pb-2">
+                    <span className="text-zinc-500">Name</span>
+                    <span className="font-semibold text-white">{addEmployeeSuccess.fullName}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-zinc-850 pb-2">
+                    <span className="text-zinc-500">Email</span>
+                    <span className="font-semibold text-white">{addEmployeeSuccess.email}</span>
+                  </div>
+                  <div className="flex justify-between border-b border-zinc-850 pb-2">
+                    <span className="text-purple-400 font-medium">Generated Login ID</span>
+                    <span className="font-mono font-bold text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">{addEmployeeSuccess.loginId}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-emerald-400 font-medium">Initial Password</span>
+                    <span className="font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">{addEmployeeSuccess.initialPassword}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={copyEmployeeCredentials}
+                    className="w-full flex items-center justify-center space-x-2 rounded-md bg-purple-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-purple-700 transition"
+                  >
+                    <span>{addEmployeeCopied ? "Copied to Clipboard!" : "Copy Credentials"}</span>
+                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAddEmployeeSuccess(null);
+                        setAddEmployeeError("");
+                      }}
+                      className="rounded-md border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:border-zinc-700 transition"
+                    >
+                      + Add Another
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddEmployeeModal(false)}
+                      className="rounded-md bg-zinc-800 px-4 py-2.5 text-xs font-semibold text-zinc-300 hover:bg-zinc-750 transition"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleAddEmployee} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Alice Smith"
+                    value={addEmployeeForm.name}
+                    onChange={(e) => setAddEmployeeForm({ ...addEmployeeForm, name: e.target.value })}
+                    className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Email Address *</label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="alice.smith@company.com"
+                    value={addEmployeeForm.email}
+                    onChange={(e) => setAddEmployeeForm({ ...addEmployeeForm, email: e.target.value })}
+                    className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Phone Number *</label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="e.g. +91 9876543210"
+                    value={addEmployeeForm.phone}
+                    onChange={(e) => setAddEmployeeForm({ ...addEmployeeForm, phone: e.target.value })}
+                    className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-white focus:border-purple-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Department</label>
+                    <input
+                      type="text"
+                      value={addEmployeeForm.department}
+                      onChange={(e) => setAddEmployeeForm({ ...addEmployeeForm, department: e.target.value })}
+                      className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-xs text-white focus:border-purple-500 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">Position</label>
+                    <input
+                      type="text"
+                      value={addEmployeeForm.position}
+                      onChange={(e) => setAddEmployeeForm({ ...addEmployeeForm, position: e.target.value })}
+                      className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2.5 text-xs text-white focus:border-purple-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowAddEmployeeModal(false)}
+                    className="rounded-md border border-zinc-800 px-4 py-2.5 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={actionLoading}
+                    className="rounded-md bg-purple-600 hover:bg-purple-700 px-5 py-2.5 text-xs font-semibold text-white transition"
+                  >
+                    {actionLoading ? "Creating..." : "Create Account"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

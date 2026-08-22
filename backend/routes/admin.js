@@ -12,9 +12,25 @@ const {
  */
 router.get('/employees', async (req, res) => {
   try {
-    const employees = await getAllProfiles();
-    const attendance = await getAllAttendance();
-    const leaves = await getAllLeaves();
+    const { hrUserId } = req.query;
+    let employees = await getAllProfiles();
+    let attendance = await getAllAttendance();
+    let leaves = await getAllLeaves();
+
+    if (hrUserId) {
+      const { getProfile } = require('../services/store');
+      const hrProfile = await getProfile(hrUserId);
+      if (hrProfile) {
+        const companyCode = hrProfile.company_code;
+        employees = employees.filter(emp => emp.company_code === companyCode);
+        
+        const employeeIds = new Set(employees.map(emp => emp.id));
+        const employeeEmpIds = new Set(employees.map(emp => emp.employee_id));
+        
+        attendance = attendance.filter(a => employeeIds.has(a.user_id) || employeeEmpIds.has(a.employee_id));
+        leaves = leaves.filter(l => employeeIds.has(l.user_id) || employeeEmpIds.has(l.employee_id));
+      }
+    }
 
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -51,9 +67,25 @@ router.get('/employees', async (req, res) => {
  */
 router.get('/overview', async (req, res) => {
   try {
-    const employees = await getAllProfiles();
-    const attendance = await getAllAttendance();
-    const leaves = await getAllLeaves();
+    const { hrUserId } = req.query;
+    let employees = await getAllProfiles();
+    let attendance = await getAllAttendance();
+    let leaves = await getAllLeaves();
+
+    if (hrUserId) {
+      const { getProfile } = require('../services/store');
+      const hrProfile = await getProfile(hrUserId);
+      if (hrProfile) {
+        const companyCode = hrProfile.company_code;
+        employees = employees.filter(emp => emp.company_code === companyCode);
+        
+        const employeeIds = new Set(employees.map(emp => emp.id));
+        const employeeEmpIds = new Set(employees.map(emp => emp.employee_id));
+        
+        attendance = attendance.filter(a => employeeIds.has(a.user_id) || employeeEmpIds.has(a.employee_id));
+        leaves = leaves.filter(l => employeeIds.has(l.user_id) || employeeEmpIds.has(l.employee_id));
+      }
+    }
 
     const todayStr = new Date().toISOString().split('T')[0];
     const todayAttendance = attendance.filter(a => a.date === todayStr);

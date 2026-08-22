@@ -19,8 +19,9 @@ app.use(cors({
   credentials: true
 }));
 
-// Body parser
-app.use(express.json());
+// Body parser with 10mb limit for Base64 logo uploads
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Register API routes
 app.use('/api/auth', authRoutes);

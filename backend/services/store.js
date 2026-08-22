@@ -506,41 +506,37 @@ async function getUserActivities(userId, employeeId) {
 
 /**
  * Automatically generates a Login ID matching format:
- * [Company Code][First 2 letters of employee's first name + first 2 letters of employee's last name][Year of Joining][4-digit serial number of joining]
- * Example: OIJODO20230001
+ * [First 2 letters of Company Name] + [First 2 letters of Employee First Name] + [First 2 letters of Employee Last Name] + [Year of Joining] + [4-digit serial number]
+ * Example: OJTO20220001
  */
-async function generateNextLoginId({ companyName, companyCode, fullName, joiningYear }) {
-  let code = companyCode ? companyCode.trim().toUpperCase() : '';
-  if (!code && companyName) {
-    const words = companyName.trim().split(/\s+/).filter(Boolean);
-    if (words.length > 1) {
-      code = words.map(w => w[0]).join('').toUpperCase().substring(0, 4);
-    } else {
-      code = companyName.trim().substring(0, 2).toUpperCase();
-    }
-  }
-  if (!code) code = 'OI';
+async function generateNextLoginId({ companyName, fullName, joiningYear }) {
+  // 1. Company Name part: clean and take first 2 letters
+  const cleanCompany = (companyName || 'OI').trim().replace(/[^a-zA-Z]/g, '');
+  const compPart = cleanCompany.substring(0, 2).toUpperCase().padEnd(2, 'X');
 
-  const nameParts = (fullName || '').trim().split(/\s+/).filter(Boolean);
-  const firstName = nameParts[0] || 'EMPLOYEE';
+  // 2. Employee Initials: first 2 letters of First name + first 2 letters of Last name
+  const nameParts = (fullName || 'Employee').trim().split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] || 'EM';
   const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : firstName;
 
   const first2 = firstName.substring(0, 2).toUpperCase().padEnd(2, 'X');
   const last2 = lastName.substring(0, 2).toUpperCase().padEnd(2, 'X');
   const initials = `${first2}${last2}`;
 
+  // 3. Joining Year part
   const year = joiningYear ? String(joiningYear) : String(new Date().getFullYear());
 
   let maxSerial = 0;
 
+  // Query Supabase for existing profiles under this company code and year to determine next serial
   try {
-    const { data: dbProfiles } = await supabaseAdmin
+    const { data: dbProfiles, error } = await supabaseAdmin
       .from('profiles')
       .select('employee_id');
-    if (dbProfiles && dbProfiles.length > 0) {
+    if (!error && dbProfiles && dbProfiles.length > 0) {
       dbProfiles.forEach(p => {
         if (p.employee_id) {
-          const regex = new RegExp(`^${code}.*?${year}(\\d{4})$`, 'i');
+          const regex = new RegExp(`^${compPart}.*?${year}(\\d{4})$`, 'i');
           const match = p.employee_id.match(regex);
           if (match) {
             const num = parseInt(match[1], 10);
@@ -549,11 +545,14 @@ async function generateNextLoginId({ companyName, companyCode, fullName, joining
         }
       });
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('Supabase query error in generateNextLoginId:', e);
+  }
 
+  // Fallback memory check
   memoryStore.profiles.forEach(p => {
     if (p.employee_id) {
-      const regex = new RegExp(`^${code}.*?${year}(\\d{4})$`, 'i');
+      const regex = new RegExp(`^${compPart}.*?${year}(\\d{4})$`, 'i');
       const match = p.employee_id.match(regex);
       if (match) {
         const num = parseInt(match[1], 10);
@@ -563,23 +562,25 @@ async function generateNextLoginId({ companyName, companyCode, fullName, joining
   });
 
   let nextSerial = maxSerial + 1;
-  let candidateId = `${code}${initials}${year}${String(nextSerial).padStart(4, '0')}`;
+  let candidateId = `${compPart}${initials}${year}${String(nextSerial).padStart(4, '0')}`;
   let isUnique = false;
   let attempts = 0;
 
   while (!isUnique && attempts < 100) {
-    candidateId = `${code}${initials}${year}${String(nextSerial).padStart(4, '0')}`;
+    candidateId = `${compPart}${initials}${year}${String(nextSerial).padStart(4, '0')}`;
     let existsInDb = false;
     try {
-      const { data } = await supabaseAdmin
+      const { data, error } = await supabaseAdmin
         .from('profiles')
         .select('id')
         .eq('employee_id', candidateId)
         .maybeSingle();
-      if (data) existsInDb = true;
+      if (!error && data) existsInDb = true;
     } catch (e) {}
 
-    const existsInMem = memoryStore.profiles.some(p => p.employee_id && p.employee_id.toUpperCase() === candidateId.toUpperCase());
+    const existsInMem = memoryStore.profiles.some(
+      p => p.employee_id && p.employee_id.toUpperCase() === candidateId.toUpperCase()
+    );
 
     if (!existsInDb && !existsInMem) {
       isUnique = true;
@@ -591,7 +592,7 @@ async function generateNextLoginId({ companyName, companyCode, fullName, joining
 
   return {
     loginId: candidateId,
-    companyCode: code,
+    companyCode: compPart,
     initials,
     joiningYear: year,
     serialNumber: String(nextSerial).padStart(4, '0')
@@ -606,20 +607,22 @@ async function getProfileByLoginIdOrEmail(identifier) {
   const str = identifier.trim().toLowerCase();
 
   try {
-    const { data: byEmail } = await supabaseAdmin
+    const { data: byEmail, error: errEmail } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .ilike('email', str)
       .maybeSingle();
-    if (byEmail) return byEmail;
+    if (!errEmail && byEmail) return byEmail;
 
-    const { data: byEmpId } = await supabaseAdmin
+    const { data: byEmpId, error: errEmp } = await supabaseAdmin
       .from('profiles')
       .select('*')
       .ilike('employee_id', str)
       .maybeSingle();
-    if (byEmpId) return byEmpId;
-  } catch (e) {}
+    if (!errEmp && byEmpId) return byEmpId;
+  } catch (e) {
+    console.error('Supabase query error in getProfileByLoginIdOrEmail:', e);
+  }
 
   return memoryStore.profiles.find(
     p => (p.email && p.email.toLowerCase() === str) || (p.employee_id && p.employee_id.toLowerCase() === str)

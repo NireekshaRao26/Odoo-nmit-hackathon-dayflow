@@ -22,17 +22,22 @@ export default function Home() {
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Check if user is logged in via localStorage
+  // Check if user is logged in via localStorage and redirect accordingly
   useEffect(() => {
     const user = localStorage.getItem("currentUser");
     if (user) {
       try {
-        setCurrentUser(JSON.parse(user));
+        const parsed = JSON.parse(user);
+        setCurrentUser(parsed);
+        router.push("/dashboard");
       } catch (e) {
         localStorage.removeItem("currentUser");
+        router.push("/signin");
       }
+    } else {
+      router.push("/signin");
     }
-  }, []);
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

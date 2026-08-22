@@ -63,7 +63,27 @@ router.get('/user', async (req, res) => {
  */
 router.get('/all', async (req, res) => {
   try {
-    const requests = await getAllLeaves();
+    const { hrUserId } = req.query;
+    let requests = await getAllLeaves();
+
+    if (hrUserId) {
+      const { getProfile, getAllProfiles } = require('../services/store');
+      const hrProfile = await getProfile(hrUserId);
+      if (hrProfile) {
+        const companyCode = hrProfile.company_code;
+        const allProfiles = await getAllProfiles();
+        const companyEmployeeIds = new Set(
+          allProfiles.filter(p => p.company_code === companyCode).map(p => p.id)
+        );
+        const companyEmployeeEmpIds = new Set(
+          allProfiles.filter(p => p.company_code === companyCode).map(p => p.employee_id)
+        );
+        requests = requests.filter(
+          r => companyEmployeeIds.has(r.user_id) || companyEmployeeEmpIds.has(r.employee_id)
+        );
+      }
+    }
+
     return res.status(200).json({ requests });
   } catch (err) {
     console.error('Error fetching all leave requests:', err);

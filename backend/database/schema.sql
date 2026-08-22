@@ -14,7 +14,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   company_name TEXT DEFAULT 'Odoo India',
   company_code TEXT DEFAULT 'OI',
   company_logo TEXT DEFAULT '',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+  joining_year INTEGER DEFAULT EXTRACT(YEAR FROM CURRENT_DATE),
+  must_change_password BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- 1b. Companies Table
