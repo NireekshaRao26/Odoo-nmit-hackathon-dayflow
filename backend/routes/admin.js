@@ -3,18 +3,31 @@ const router = express.Router();
 const {
   getAllProfiles,
   getAllAttendance,
-  getAllLeaves
+  getAllLeaves,
+  getProfile
 } = require('../services/store');
 
 /**
  * @route   GET /api/admin/employees
  * @desc    Fetch list of all registered employees with today's attendance & stats
+ *          Scoped to the requesting HR user's company
  */
 router.get('/employees', async (req, res) => {
   try {
-    const employees = await getAllProfiles();
-    const attendance = await getAllAttendance();
-    const leaves = await getAllLeaves();
+    const { requesterId } = req.query;
+
+    // Resolve company_code from the HR requester's profile
+    let companyCode = null;
+    if (requesterId) {
+      const requesterProfile = await getProfile(requesterId);
+      if (requesterProfile && requesterProfile.role === 'hr') {
+        companyCode = requesterProfile.company_code;
+      }
+    }
+
+    const employees = await getAllProfiles(companyCode);
+    const attendance = await getAllAttendance(null, null, companyCode);
+    const leaves = await getAllLeaves(companyCode);
 
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -48,12 +61,24 @@ router.get('/employees', async (req, res) => {
 /**
  * @route   GET /api/admin/overview
  * @desc    Get organization overview stats for Admin Dashboard
+ *          Scoped to the requesting HR user's company
  */
 router.get('/overview', async (req, res) => {
   try {
-    const employees = await getAllProfiles();
-    const attendance = await getAllAttendance();
-    const leaves = await getAllLeaves();
+    const { requesterId } = req.query;
+
+    // Resolve company_code from the HR requester's profile
+    let companyCode = null;
+    if (requesterId) {
+      const requesterProfile = await getProfile(requesterId);
+      if (requesterProfile && requesterProfile.role === 'hr') {
+        companyCode = requesterProfile.company_code;
+      }
+    }
+
+    const employees = await getAllProfiles(companyCode);
+    const attendance = await getAllAttendance(null, null, companyCode);
+    const leaves = await getAllLeaves(companyCode);
 
     const todayStr = new Date().toISOString().split('T')[0];
     const todayAttendance = attendance.filter(a => a.date === todayStr);

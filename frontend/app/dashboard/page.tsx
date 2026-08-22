@@ -122,14 +122,14 @@ export default function DashboardPage() {
     try {
       if (isHrUser) {
         // Employees
-        const empRes = await fetch(`${API_BASE}/api/admin/employees`);
+        const empRes = await fetch(`${API_BASE}/api/admin/employees?requesterId=${userId}`);
         if (empRes.ok) {
           const eData = await empRes.json();
           setRawEmployees(eData.employees || []);
         }
 
         // All Attendance
-        const attAllRes = await fetch(`${API_BASE}/api/attendance/all`);
+        const attAllRes = await fetch(`${API_BASE}/api/attendance/all?requesterId=${userId}`);
         if (attAllRes.ok) {
           const aAllData = await attAllRes.json();
           setAllAttendance(aAllData.records || []);

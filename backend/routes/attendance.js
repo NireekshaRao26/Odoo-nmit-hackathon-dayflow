@@ -242,13 +242,16 @@ router.get('/all', async (req, res) => {
       return res.status(403).json({ error: 'Access denied. Only HR Admin users can view organization attendance.' });
     }
 
+    // Extract company_code for scoped queries
+    const companyCode = requester.company_code || null;
+
     // Use selected date or default to local today date string
     const offset = new Date().getTimezoneOffset() * 60000;
     const todayStr = new Date(Date.now() - offset).toISOString().split('T')[0];
     const targetDate = date || todayStr;
 
-    // 2. Fetch all profiles
-    const profiles = await getAllProfiles();
+    // 2. Fetch all profiles (scoped to company)
+    const profiles = await getAllProfiles(companyCode);
 
     // 3. Fetch attendance records for this date
     const { data: attendanceData } = await supabaseAdmin
@@ -267,7 +270,11 @@ router.get('/all', async (req, res) => {
     const attendanceRecords = attendanceData || memoryStore.attendance.filter(a => a.date === targetDate);
     const leaves = leavesData || memoryStore.leaveRequests.filter(l => l.status === 'approved' && l.start_date <= targetDate && targetDate <= l.end_date);
 
-    // 5. Build daily directory rows
+    // Build a set of company employee IDs for filtering
+    const companyEmployeeIds = new Set(profiles.map(p => p.id));
+    const companyEmployeeEmpIds = new Set(profiles.map(p => p.employee_id));
+
+    // 5. Build daily directory rows (only for company employees)
     let records = profiles.map(profile => {
       const att = attendanceRecords.find(a => a.user_id === profile.id || a.employee_id === profile.employee_id);
       const leave = leaves.find(l => l.user_id === profile.id || l.employee_id === profile.employee_id);

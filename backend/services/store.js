@@ -207,13 +207,18 @@ async function updateProfile(userId, updateFields) {
   return prof;
 }
 
-// Get All Profiles
-async function getAllProfiles() {
+// Get All Profiles (optionally scoped to a company)
+async function getAllProfiles(companyCode) {
   try {
-    const { data, error } = await supabaseAdmin.from('profiles').select('*').order('created_at', { ascending: false });
+    let query = supabaseAdmin.from('profiles').select('*').order('created_at', { ascending: false });
+    if (companyCode) query = query.eq('company_code', companyCode);
+    const { data, error } = await query;
     if (!error && data && data.length > 0) return data;
   } catch (e) {
     // DB fallback
+  }
+  if (companyCode) {
+    return memoryStore.profiles.filter(p => p.company_code === companyCode);
   }
   return memoryStore.profiles;
 }
@@ -370,12 +375,12 @@ async function getUserAttendanceHistory(userId, employeeId) {
     .sort((a, b) => b.date.localeCompare(a.date));
 }
 
-// Get All Attendance
-async function getAllAttendance(date, search) {
+// Get All Attendance (optionally scoped to a company)
+async function getAllAttendance(date, search, companyCode) {
   try {
     let query = supabaseAdmin
       .from('attendance')
-      .select('*, profiles:user_id(id, employee_id, full_name, email, role, avatar_url, position, department)');
+      .select('*, profiles:user_id(id, employee_id, full_name, email, role, avatar_url, position, department, company_code)');
 
     if (date) {
       query = query.eq('date', date);
@@ -384,6 +389,10 @@ async function getAllAttendance(date, search) {
     const { data, error } = await query;
     if (!error && data) {
       let results = data;
+      // Filter by company_code if provided
+      if (companyCode) {
+        results = results.filter(rec => rec.profiles?.company_code === companyCode);
+      }
       // Filter by search on full_name, email, or employee_id
       if (search) {
         const q = search.toLowerCase().trim();
@@ -405,25 +414,32 @@ async function getAllAttendance(date, search) {
   if (date) {
     results = results.filter(r => r.date === date);
   }
-  if (search) {
-    const q = search.toLowerCase().trim();
-    results = results.filter(rec => {
-      const empId = (rec.employee_id || '').toLowerCase();
-      const prof = memoryStore.profiles.find(p => p.id === rec.user_id || p.employee_id === rec.employee_id);
-      const fullName = (prof?.full_name || '').toLowerCase();
-      const email = (prof?.email || '').toLowerCase();
-      return empId.includes(q) || fullName.includes(q) || email.includes(q);
-    });
-  }
 
   // Join profiles for fallback representation
-  return results.map(rec => {
+  results = results.map(rec => {
     const prof = memoryStore.profiles.find(p => p.id === rec.user_id || p.employee_id === rec.employee_id);
     return {
       ...rec,
       profiles: prof || null
     };
   });
+
+  // Filter by company_code in memory fallback
+  if (companyCode) {
+    results = results.filter(rec => rec.profiles?.company_code === companyCode);
+  }
+
+  if (search) {
+    const q = search.toLowerCase().trim();
+    results = results.filter(rec => {
+      const empId = (rec.employee_id || '').toLowerCase();
+      const fullName = (rec.profiles?.full_name || '').toLowerCase();
+      const email = (rec.profiles?.email || '').toLowerCase();
+      return empId.includes(q) || fullName.includes(q) || email.includes(q);
+    });
+  }
+
+  return results;
 }
 
 // Apply Leave
@@ -482,16 +498,28 @@ async function getUserLeaves(userId, employeeId) {
     .sort((a, b) => new Date(b.applied_at).getTime() - new Date(a.applied_at).getTime());
 }
 
-// Get All Leaves
-async function getAllLeaves() {
+// Get All Leaves (optionally scoped to a company)
+async function getAllLeaves(companyCode) {
   try {
     const { data, error } = await supabaseAdmin
       .from('leave_requests')
-      .select('*')
+      .select('*, profiles:user_id(id, employee_id, company_code)')
       .order('applied_at', { ascending: false });
-    if (!error && data && data.length > 0) return data;
+    if (!error && data && data.length > 0) {
+      let results = data;
+      if (companyCode) {
+        results = results.filter(r => r.profiles?.company_code === companyCode);
+      }
+      return results;
+    }
   } catch (e) {
     // DB fallback
+  }
+  if (companyCode) {
+    const companyUserIds = new Set(
+      memoryStore.profiles.filter(p => p.company_code === companyCode).map(p => p.id)
+    );
+    return memoryStore.leaveRequests.filter(l => companyUserIds.has(l.user_id));
   }
   return memoryStore.leaveRequests;
 }
@@ -885,17 +913,22 @@ async function getLeaveBalances(userId, employeeId) {
 }
 
 /**
- * Get leave balances for ALL employees (HR view)
+ * Get leave balances for ALL employees (HR view, optionally scoped to a company)
  */
-async function getAllLeaveBalances() {
+async function getAllLeaveBalances(companyCode) {
   const year = new Date().getFullYear();
   try {
     const { data, error } = await supabaseAdmin
       .from('leave_balances')
-      .select('*, profiles:user_id(id, employee_id, full_name, email, department, position)')
+      .select('*, profiles:user_id(id, employee_id, full_name, email, department, position, company_code)')
       .eq('year', year)
       .order('employee_id');
-    if (!error && data) return data;
+    if (!error && data) {
+      if (companyCode) {
+        return data.filter(b => b.profiles?.company_code === companyCode);
+      }
+      return data;
+    }
   } catch (e) {
     console.error('getAllLeaveBalances error:', e.message);
   }
@@ -1107,24 +1140,29 @@ async function revertAttendanceForLeave(userId, startDate, endDate) {
 // ENHANCED: Get All Leaves with Profile join for HR search
 // ============================================================
 
-async function getAllLeavesWithProfiles(search) {
+async function getAllLeavesWithProfiles(search, companyCode) {
   try {
     const { data, error } = await supabaseAdmin
       .from('leave_requests')
-      .select('*, profiles:user_id(id, employee_id, full_name, email, department, position, avatar_url)')
+      .select('*, profiles:user_id(id, employee_id, full_name, email, department, position, avatar_url, company_code)')
       .order('applied_at', { ascending: false });
 
     if (!error && data) {
+      let results = data;
+      // Filter by company_code if provided
+      if (companyCode) {
+        results = results.filter(r => r.profiles?.company_code === companyCode);
+      }
       if (search) {
         const q = search.toLowerCase().trim();
-        return data.filter(r => {
+        results = results.filter(r => {
           const empId = (r.employee_id || '').toLowerCase();
           const fullName = (r.profiles?.full_name || '').toLowerCase();
           const email = (r.profiles?.email || '').toLowerCase();
           return empId.includes(q) || fullName.includes(q) || email.includes(q);
         });
       }
-      return data;
+      return results;
     }
   } catch (e) {
     console.error('getAllLeavesWithProfiles error:', e.message);
@@ -1134,6 +1172,10 @@ async function getAllLeavesWithProfiles(search) {
     const prof = memoryStore.profiles.find(p => p.id === r.user_id || p.employee_id === r.employee_id);
     return { ...r, profiles: prof || null };
   });
+  // Filter by company_code in memory fallback
+  if (companyCode) {
+    results = results.filter(r => r.profiles?.company_code === companyCode);
+  }
   if (search) {
     const q = search.toLowerCase().trim();
     results = results.filter(r => {

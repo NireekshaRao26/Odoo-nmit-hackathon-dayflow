@@ -17,6 +17,7 @@ const {
   calculateWorkingDays,
   upsertAttendanceForLeave,
   revertAttendanceForLeave,
+  getProfile,
 } = require('../services/store');
 
 // Multer: memory storage for temporary file handling before Supabase upload
@@ -137,8 +138,18 @@ router.get('/user', async (req, res) => {
 // ============================================================
 router.get('/all', async (req, res) => {
   try {
-    const { search } = req.query;
-    const requests = await getAllLeavesWithProfiles(search || '');
+    const { search, requesterId } = req.query;
+
+    // Resolve company_code from the HR requester's profile
+    let companyCode = null;
+    if (requesterId) {
+      const requesterProfile = await getProfile(requesterId);
+      if (requesterProfile && requesterProfile.role === 'hr') {
+        companyCode = requesterProfile.company_code;
+      }
+    }
+
+    const requests = await getAllLeavesWithProfiles(search || '', companyCode);
     return res.status(200).json({ requests });
   } catch (err) {
     console.error('Error fetching all leave requests:', err);
@@ -241,10 +252,19 @@ router.put('/status', async (req, res) => {
 // ============================================================
 router.get('/balances', async (req, res) => {
   try {
-    const { userId, employeeId, isHr } = req.query;
+    const { userId, employeeId, isHr, requesterId } = req.query;
 
     if (isHr === 'true') {
-      const balances = await getAllLeaveBalances();
+      // Resolve company_code from the HR requester's profile
+      let companyCode = null;
+      if (requesterId) {
+        const requesterProfile = await getProfile(requesterId);
+        if (requesterProfile && requesterProfile.role === 'hr') {
+          companyCode = requesterProfile.company_code;
+        }
+      }
+
+      const balances = await getAllLeaveBalances(companyCode);
       return res.status(200).json({ balances });
     }
 

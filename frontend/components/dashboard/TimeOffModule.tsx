@@ -294,7 +294,7 @@ export default function TimeOffModule({ isHr, userId, employeeId, fullName, onRe
   const fetchBalances = useCallback(async () => {
     try {
       if (isHr) {
-        const res = await fetch(`${API_BASE}/api/leaves/balances?isHr=true`);
+        const res = await fetch(`${API_BASE}/api/leaves/balances?isHr=true&requesterId=${userId}`);
         if (res.ok) {
           const data = await res.json();
           setAllBalances(data.balances || []);
