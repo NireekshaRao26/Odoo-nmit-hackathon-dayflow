@@ -68,6 +68,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
   const [selectedDate, setSelectedDate] = useState(getInitialLocalDateStr());
   const [selectedMonth, setSelectedMonth] = useState(getInitialLocalMonthStr());
   const [searchQuery, setSearchQuery] = useState("");
+  const [onlyLogged, setOnlyLogged] = useState(false);
 
   // Data states
   const [hrRecords, setHrRecords] = useState<HRRecord[]>([]);
@@ -89,7 +90,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
     setError("");
     try {
       const res = await fetch(
-        `${API_BASE}/api/attendance/all?date=${selectedDate}&search=${searchQuery}&requesterId=${viewerId}`
+        `${API_BASE}/api/attendance/all?date=${selectedDate}&search=${encodeURIComponent(searchQuery)}&onlyLogged=${onlyLogged}&requesterId=${viewerId}`
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to load employee records.");
@@ -99,7 +100,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, searchQuery, viewerId]);
+  }, [selectedDate, searchQuery, onlyLogged, viewerId]);
 
   // 2. Load Employee Monthly Calendar & Summary
   const loadEmployeeData = useCallback(async () => {
@@ -138,6 +139,10 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
     setSelectedDate(`${yyyy}-${mm}-${dd}`);
   };
 
+  const handleResetToToday = () => {
+    setSelectedDate(getInitialLocalDateStr());
+  };
+
   // Formatting helpers
   const formatTime = (isoString: string | null) => {
     if (!isoString) return "-";
@@ -163,11 +168,16 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
         return "bg-blue-500/10 text-blue-400 border border-blue-500/20";
       case "weekend":
         return "bg-zinc-800 text-zinc-500 border border-zinc-700/30";
+      case "data-unavailable":
+      case "future":
+        return "bg-amber-500/10 text-amber-400 border border-amber-500/20";
       case "absent":
       default:
         return "bg-rose-500/10 text-rose-400 border border-rose-500/20";
     }
   };
+
+  const isFutureSelectedDate = selectedDate > getInitialLocalDateStr();
 
   return (
     <div className="space-y-6">
@@ -189,12 +199,25 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                 Attendance Directory
               </h1>
               <p className="text-xs text-zinc-400 mt-0.5">
-                Monitor employee shifts, leaves, and working duration.
+                Showing attendance logs for <strong className="text-purple-400 font-mono font-semibold">{formatDateLabel(selectedDate)}</strong>
               </p>
             </div>
 
             {/* Toolbar controls */}
             <div className="flex flex-wrap items-center gap-3">
+              {/* Toggle: All Employees vs Only Logged */}
+              <button
+                type="button"
+                onClick={() => setOnlyLogged(!onlyLogged)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition cursor-pointer ${
+                  onlyLogged
+                    ? "bg-purple-600/20 text-purple-300 border-purple-500/40"
+                    : "bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white"
+                }`}
+              >
+                {onlyLogged ? "✓ Active Logs Only" : "All Employees"}
+              </button>
+
               {/* Search input */}
               <div className="relative">
                 <input
@@ -211,26 +234,59 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                 <button
                   type="button"
                   onClick={() => handleAdjustDate(-1)}
-                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white px-2.5 py-1 text-xs rounded transition font-mono cursor-pointer font-bold"
+                  title="Previous Day"
+                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white px-2 py-1 text-xs rounded transition font-mono cursor-pointer font-bold"
                 >
                   ←
                 </button>
                 <input
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="bg-transparent text-white text-xs border-none outline-none px-1.5 py-0.5 focus:ring-0 font-medium"
+                  onChange={(e) => {
+                    if (e.target.value) setSelectedDate(e.target.value);
+                  }}
+                  className="bg-transparent text-white text-xs border-none outline-none px-1.5 py-0.5 focus:ring-0 font-medium cursor-pointer"
                 />
                 <button
                   type="button"
                   onClick={() => handleAdjustDate(1)}
-                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white px-2.5 py-1 text-xs rounded transition font-mono cursor-pointer font-bold"
+                  title="Next Day"
+                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white px-2 py-1 text-xs rounded transition font-mono cursor-pointer font-bold"
                 >
                   →
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetToToday}
+                  title="Jump to Today"
+                  className="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2 py-1 text-[10px] uppercase font-bold rounded transition cursor-pointer ml-1"
+                >
+                  Today
                 </button>
               </div>
             </div>
           </div>
+
+          {/* Future Date Alert Banner */}
+          {isFutureSelectedDate && (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-center justify-between text-xs text-amber-300">
+              <div className="flex items-center space-x-2.5">
+                <svg className="h-5 w-5 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>
+                  <strong>Data Unavailable:</strong> Future date selected ({formatDateLabel(selectedDate)}). Attendance records are not available for upcoming days.
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleResetToToday}
+                className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 px-3 py-1 rounded-lg text-xs font-semibold transition cursor-pointer shrink-0 ml-4"
+              >
+                Return to Today
+              </button>
+            </div>
+          )}
 
           {/* Table display */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 overflow-hidden shadow-md">
@@ -292,7 +348,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                           </td>
                           <td className="px-5 py-3.5">
                             <span className={`inline-flex rounded px-2 py-0.5 text-[9px] font-bold tracking-wider uppercase ${getStatusBadgeClass(rec.status)}`}>
-                              {rec.status}
+                              {rec.status === "data-unavailable" ? "Data Unavailable" : rec.status}
                             </span>
                           </td>
                         </tr>
@@ -301,7 +357,9 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                   ) : (
                     <tr>
                       <td colSpan={7} className="px-5 py-12 text-center text-zinc-500">
-                        No attendance records found for this date.
+                        {isFutureSelectedDate
+                          ? "Attendance data unavailable for future dates."
+                          : "No attendance records found for this date."}
                       </td>
                     </tr>
                   )}
@@ -424,7 +482,7 @@ export default function AttendanceModule({ viewerId, viewerRole }: AttendanceMod
                         </td>
                         <td className="px-5 py-3.5">
                           <span className={`inline-flex rounded px-2.5 py-0.5 text-[9px] font-bold tracking-wider uppercase ${getStatusBadgeClass(rec.status)}`}>
-                            {rec.status}
+                            {rec.status === "data-unavailable" ? "Data Unavailable" : rec.status}
                           </span>
                         </td>
                       </tr>

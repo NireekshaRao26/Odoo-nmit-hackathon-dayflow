@@ -178,7 +178,13 @@ router.get('/history', async (req, res) => {
       let checkOut = null;
       let workHours = 0;
 
-      if (att) {
+      // Handle future days
+      if (dateStr > todayStr) {
+        status = onLeave ? 'leave' : 'data-unavailable';
+        checkIn = null;
+        checkOut = null;
+        workHours = 0;
+      } else if (att) {
         status = att.check_out ? 'present' : 'checked-in';
         checkIn = att.check_in;
         checkOut = att.check_out;
@@ -231,7 +237,7 @@ router.get('/history', async (req, res) => {
  */
 router.get('/all', async (req, res) => {
   try {
-    const { date, search, requesterId } = req.query;
+    const { date, search, requesterId, onlyLogged } = req.query;
     if (!requesterId) {
       return res.status(400).json({ error: 'requesterId is required.' });
     }
@@ -248,39 +254,82 @@ router.get('/all', async (req, res) => {
     // Use selected date or default to local today date string
     const offset = new Date().getTimezoneOffset() * 60000;
     const todayStr = new Date(Date.now() - offset).toISOString().split('T')[0];
-    const targetDate = date || todayStr;
+    const targetDate = (date && /^\d{4}-\d{2}-\d{2}$/.test(date.trim())) ? date.trim() : todayStr;
 
     // 2. Fetch all profiles (scoped to company)
     const profiles = await getAllProfiles(companyCode);
 
     // 3. Fetch attendance records for this date
-    const { data: attendanceData } = await supabaseAdmin
-      .from('attendance')
-      .select('*')
-      .eq('date', targetDate);
+    let attendanceRecords = [];
+    try {
+      const { data: attendanceData, error: attErr } = await supabaseAdmin
+        .from('attendance')
+        .select('*')
+        .eq('date', targetDate);
+
+      if (!attErr && attendanceData && attendanceData.length > 0) {
+        attendanceRecords = attendanceData;
+      } else {
+        // Fallback to memoryStore or check ISO string check_in timestamps matching targetDate
+        attendanceRecords = memoryStore.attendance.filter(a => {
+          if (!a) return false;
+          if (a.date === targetDate) return true;
+          if (a.check_in) {
+            const checkInDate = new Date(a.check_in).toISOString().split('T')[0];
+            if (checkInDate === targetDate) return true;
+          }
+          return false;
+        });
+      }
+    } catch (e) {
+      attendanceRecords = memoryStore.attendance.filter(a => a && a.date === targetDate);
+    }
 
     // 4. Fetch approved leaves for this date
-    const { data: leavesData } = await supabaseAdmin
-      .from('leave_requests')
-      .select('*')
-      .eq('status', 'approved')
-      .lte('start_date', targetDate)
-      .gte('end_date', targetDate);
+    let leaves = [];
+    try {
+      const { data: leavesData, error: leaveErr } = await supabaseAdmin
+        .from('leave_requests')
+        .select('*')
+        .eq('status', 'approved')
+        .lte('start_date', targetDate)
+        .gte('end_date', targetDate);
 
-    const attendanceRecords = attendanceData || memoryStore.attendance.filter(a => a.date === targetDate);
-    const leaves = leavesData || memoryStore.leaveRequests.filter(l => l.status === 'approved' && l.start_date <= targetDate && targetDate <= l.end_date);
-
-    // Build a set of company employee IDs for filtering
-    const companyEmployeeIds = new Set(profiles.map(p => p.id));
-    const companyEmployeeEmpIds = new Set(profiles.map(p => p.employee_id));
+      if (!leaveErr && leavesData && leavesData.length > 0) {
+        leaves = leavesData;
+      } else {
+        leaves = memoryStore.leaveRequests.filter(l => 
+          l && l.status === 'approved' && l.start_date <= targetDate && targetDate <= l.end_date
+        );
+      }
+    } catch (e) {
+      leaves = memoryStore.leaveRequests.filter(l => 
+        l && l.status === 'approved' && l.start_date <= targetDate && targetDate <= l.end_date
+      );
+    }
 
     // 5. Build daily directory rows (only for company employees)
     let records = profiles.map(profile => {
-      const att = attendanceRecords.find(a => a.user_id === profile.id || a.employee_id === profile.employee_id);
-      const leave = leaves.find(l => l.user_id === profile.id || l.employee_id === profile.employee_id);
+      // Find matching attendance record specifically belonging to targetDate
+      const att = attendanceRecords.find(a => {
+        const isUserMatch = a.user_id === profile.id || a.employee_id === profile.employee_id;
+        if (!isUserMatch) return false;
+        const recDate = a.date || (a.check_in ? new Date(a.check_in).toISOString().split('T')[0] : null);
+        return recDate === targetDate;
+      });
+
+      // Find matching approved leave intersecting targetDate
+      const leave = leaves.find(l => 
+        (l.user_id === profile.id || l.employee_id === profile.employee_id) &&
+        l.start_date <= targetDate && targetDate <= l.end_date
+      );
+
+      const isFutureDate = targetDate > todayStr;
 
       let status = 'absent';
-      if (att) {
+      if (isFutureDate) {
+        status = leave ? 'leave' : 'data-unavailable';
+      } else if (att) {
         status = att.check_out ? 'present' : 'checked-in';
       } else if (leave) {
         status = 'leave';
@@ -297,9 +346,15 @@ router.get('/all', async (req, res) => {
         check_in: att?.check_in || null,
         check_out: att?.check_out || null,
         work_hours: att?.work_hours || 0,
-        status: status
+        status: status,
+        date: targetDate
       };
     });
+
+    // Option: If client requested only logged attendance (present, checked-in, or leave)
+    if (onlyLogged === 'true' || onlyLogged === '1') {
+      records = records.filter(r => r.status !== 'absent');
+    }
 
     // 6. Apply search filter
     if (search) {
@@ -311,7 +366,7 @@ router.get('/all', async (req, res) => {
       );
     }
 
-    return res.status(200).json({ records });
+    return res.status(200).json({ records, targetDate });
   } catch (err) {
     console.error('Error fetching all attendance:', err);
     return res.status(500).json({ error: 'Failed to fetch all attendance.' });
