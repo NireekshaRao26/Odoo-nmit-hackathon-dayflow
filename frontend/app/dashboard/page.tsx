@@ -10,6 +10,9 @@ interface UserSession {
   employeeId: string;
   email: string;
   role: string;
+  companyName?: string;
+  companyLogo?: string;
+  must_change_password?: boolean;
 }
 
 interface Profile {
@@ -22,6 +25,11 @@ interface Profile {
   phone: string;
   position: string;
   avatar_url: string;
+  company_name?: string;
+  company_code?: string;
+  company_logo?: string;
+  joining_year?: number;
+  must_change_password?: boolean;
 }
 
 interface AttendanceRecord {
@@ -213,32 +221,30 @@ export default function DashboardPage() {
 
   // 2. Fetch Admin / HR Data
   const fetchAdminData = useCallback(async () => {
-    if (!currentUser?.id) return;
-    const hrId = currentUser.id;
     try {
       // All Employees
-      const empRes = await fetch(`${API_BASE}/api/admin/employees?hrUserId=${hrId}`);
+      const empRes = await fetch(`${API_BASE}/api/admin/employees`);
       if (empRes.ok) {
         const eData = await empRes.json();
         setAllEmployees(eData.employees || []);
       }
 
       // All Attendance
-      const attRes = await fetch(`${API_BASE}/api/attendance/all?hrUserId=${hrId}`);
+      const attRes = await fetch(`${API_BASE}/api/attendance/all`);
       if (attRes.ok) {
         const aData = await attRes.json();
         setAllAttendance(aData.records || []);
       }
 
       // All Leaves
-      const leavesRes = await fetch(`${API_BASE}/api/leaves/all?hrUserId=${hrId}`);
+      const leavesRes = await fetch(`${API_BASE}/api/leaves/all`);
       if (leavesRes.ok) {
         const lData = await leavesRes.json();
         setAllLeaves(lData.requests || []);
       }
 
       // Overview Stats
-      const statsRes = await fetch(`${API_BASE}/api/admin/overview?hrUserId=${hrId}`);
+      const statsRes = await fetch(`${API_BASE}/api/admin/overview`);
       if (statsRes.ok) {
         const sData = await statsRes.json();
         setOverviewStats(sData.stats);
@@ -246,7 +252,7 @@ export default function DashboardPage() {
     } catch (e) {
       console.error("Error fetching admin data:", e);
     }
-  }, [currentUser]);
+  }, []);
 
   // Initial Auth Check
   useEffect(() => {
