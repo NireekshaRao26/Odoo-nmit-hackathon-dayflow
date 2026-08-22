@@ -40,6 +40,7 @@ interface Profile {
   avatar_url: string;
   company_name?: string;
   joining_year?: number;
+  must_change_password?: boolean;
 }
 
 export default function DashboardPage() {
@@ -70,6 +71,13 @@ export default function DashboardPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
+  // Forced Password Change Modal States
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [confirmNewPasswordInput, setConfirmNewPasswordInput] = useState("");
+  const [showNewPasswordToggle, setShowNewPasswordToggle] = useState(false);
+  const [changePasswordError, setChangePasswordError] = useState("");
+
   const showToast = (msg: string) => {
     setToastMsg(msg);
     setTimeout(() => setToastMsg(null), 4000);
@@ -85,6 +93,9 @@ export default function DashboardPage() {
       if (profRes.ok) {
         const pData = await profRes.json();
         setUserProfile(pData.profile);
+        if (pData.profile?.must_change_password) {
+          setShowChangePasswordModal(true);
+        }
       }
 
       // Today's Attendance for User
@@ -108,18 +119,23 @@ export default function DashboardPage() {
   // 2. Fetch All Organization Data (Employees, Attendance, Leaves)
   const fetchOrgData = useCallback(async (userId: string, empId: string, isHrUser: boolean) => {
     try {
-      // Employees
-      const empRes = await fetch(`${API_BASE}/api/admin/employees`);
-      if (empRes.ok) {
-        const eData = await empRes.json();
-        setRawEmployees(eData.employees || []);
-      }
+      if (isHrUser) {
+        // Employees
+        const empRes = await fetch(`${API_BASE}/api/admin/employees`);
+        if (empRes.ok) {
+          const eData = await empRes.json();
+          setRawEmployees(eData.employees || []);
+        }
 
-      // All Attendance
-      const attAllRes = await fetch(`${API_BASE}/api/attendance/all`);
-      if (attAllRes.ok) {
-        const aAllData = await attAllRes.json();
-        setAllAttendance(aAllData.records || []);
+        // All Attendance
+        const attAllRes = await fetch(`${API_BASE}/api/attendance/all`);
+        if (attAllRes.ok) {
+          const aAllData = await attAllRes.json();
+          setAllAttendance(aAllData.records || []);
+        }
+      } else {
+        setRawEmployees([]);
+        setAllAttendance([]);
       }
 
       // Leaves
@@ -204,6 +220,55 @@ export default function DashboardPage() {
       fetchOrgData(currentUser.id, currentUser.employeeId, isHr);
     } catch (err: any) {
       showToast(err.message || "Clock-out failed");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePasswordError("");
+
+    if (!newPasswordInput) {
+      setChangePasswordError("New password is required.");
+      return;
+    }
+
+    if (newPasswordInput !== confirmNewPasswordInput) {
+      setChangePasswordError("Passwords do not match.");
+      return;
+    }
+
+    const passRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>]).{8,}$/;
+    if (!passRegex.test(newPasswordInput)) {
+      setChangePasswordError("Password must be at least 8 characters long, containing uppercase, lowercase, digit, and special character.");
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: currentUser?.id,
+          email: currentUser?.email,
+          newPassword: newPasswordInput,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update password.");
+
+      showToast("Password updated successfully!");
+      setShowChangePasswordModal(false);
+      setNewPasswordInput("");
+      setConfirmNewPasswordInput("");
+      
+      if (userProfile) {
+        setUserProfile({ ...userProfile, must_change_password: false });
+      }
+    } catch (err: any) {
+      setChangePasswordError(err.message || "Failed to update password.");
     } finally {
       setActionLoading(false);
     }
@@ -398,6 +463,7 @@ export default function DashboardPage() {
         companyName={userProfile?.company_name || currentUser.companyName || "Dayflow"}
         onMyProfileClick={handleOpenMyProfile}
         onLogoutClick={handleLogout}
+        isHr={isHr}
       />
 
       {/* Main Dashboard Layout */}
@@ -568,6 +634,85 @@ export default function DashboardPage() {
         employee={selectedDetailEmployee}
         title={detailModalTitle}
       />
+
+      {/* Forced Password Change Modal */}
+      {showChangePasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-8 shadow-2xl">
+            <div className="flex flex-col items-center text-center space-y-3 mb-6">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-purple-600/10 border border-purple-500/30 text-purple-400">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-bold tracking-tight text-white">Secure Your Account</h2>
+              <p className="text-xs text-zinc-400 max-w-sm">
+                Since this is your first sign-in, you are required to change your initial password before accessing the dashboard.
+              </p>
+            </div>
+
+            <form onSubmit={handleChangePassword} className="space-y-4">
+              {changePasswordError && (
+                <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 px-4 py-2.5 text-xs text-rose-400">
+                  {changePasswordError}
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showNewPasswordToggle ? "text" : "password"}
+                    value={newPasswordInput}
+                    onChange={(e) => setNewPasswordInput(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-lg border border-zinc-800 bg-zinc-900/40 px-3.5 py-2 text-sm text-white placeholder-zinc-600 focus:border-purple-500 focus:outline-none transition"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPasswordToggle(!showNewPasswordToggle)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-zinc-500 hover:text-zinc-300"
+                  >
+                    {showNewPasswordToggle ? (
+                      <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                  Confirm New Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmNewPasswordInput}
+                  onChange={(e) => setConfirmNewPasswordInput(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900/40 px-3.5 py-2 text-sm text-white placeholder-zinc-600 focus:border-purple-500 focus:outline-none transition"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={actionLoading}
+                className="w-full rounded-lg bg-purple-600 hover:bg-purple-700 active:bg-purple-800 text-white font-semibold py-2.5 text-xs transition duration-150 shadow-md cursor-pointer disabled:opacity-50 mt-2"
+              >
+                {actionLoading ? "Updating Password..." : "Update Password"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

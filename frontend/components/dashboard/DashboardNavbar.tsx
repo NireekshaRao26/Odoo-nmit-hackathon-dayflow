@@ -14,6 +14,7 @@ interface DashboardNavbarProps {
   companyName?: string;
   onMyProfileClick: () => void;
   onLogoutClick: () => void;
+  isHr?: boolean;
 }
 
 export default function DashboardNavbar({
@@ -25,6 +26,7 @@ export default function DashboardNavbar({
   companyName = "Dayflow",
   onMyProfileClick,
   onLogoutClick,
+  isHr = false,
 }: DashboardNavbarProps) {
   return (
     <header className="border-b border-zinc-800 bg-zinc-950/90 backdrop-blur-md sticky top-0 z-40">
@@ -43,7 +45,7 @@ export default function DashboardNavbar({
                 {companyName}
               </span>
             </div>
-
+ 
             {/* Navigation Items */}
             <nav className="flex items-center space-x-1 sm:space-x-2">
               <button
@@ -55,7 +57,7 @@ export default function DashboardNavbar({
                     : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900"
                 }`}
               >
-                Employees
+                {isHr ? "Employees" : "My Workspace"}
               </button>
 
               <button
