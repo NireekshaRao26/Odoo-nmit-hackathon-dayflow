@@ -12,7 +12,8 @@ import AttendancePanel from "@/components/dashboard/AttendancePanel";
 import NewEmployeeModal from "@/components/dashboard/NewEmployeeModal";
 import UserProfileView from "@/components/dashboard/UserProfileView";
 import AttendanceModule, { AttendanceRecord } from "@/components/dashboard/AttendanceModule";
-import TimeOffModule, { LeaveRequest } from "@/components/dashboard/TimeOffModule";
+import TimeOffModule from "@/components/dashboard/TimeOffModule";
+import type { LeaveRequest } from "@/components/dashboard/TimeOffModule";
 import PersonalProfileCard from "@/components/dashboard/PersonalProfileCard";
 import { EmployeeWorkStatus } from "@/components/dashboard/StatusIndicator";
 
@@ -59,6 +60,7 @@ export default function DashboardPage() {
   const [todayAttendance, setTodayAttendance] = useState<AttendanceRecord | null>(null);
   const [allAttendance, setAllAttendance] = useState<AttendanceRecord[]>([]);
   const [userAttendanceHistory, setUserAttendanceHistory] = useState<AttendanceRecord[]>([]);
+  // leaveRequests used only for employee-card on-leave status calculation
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
 
   // Search & Filters
@@ -137,8 +139,10 @@ export default function DashboardPage() {
         setAllAttendance([]);
       }
 
-      // Leaves
-      const leavesEndpoint = isHrUser ? `${API_BASE}/api/leaves/all` : `${API_BASE}/api/leaves/user?userId=${userId}&employeeId=${empId}`;
+      // Leaves (lightweight fetch for employee status cards only)
+      const leavesEndpoint = isHrUser
+        ? `${API_BASE}/api/leaves/all?requesterId=${userId}`
+        : `${API_BASE}/api/leaves/user?userId=${userId}&employeeId=${empId}`;
       const leavesRes = await fetch(leavesEndpoint);
       if (leavesRes.ok) {
         const lData = await leavesRes.json();
@@ -197,7 +201,7 @@ export default function DashboardPage() {
       fetchOrgData(currentUser.id, currentUser.employeeId, isHr);
     } catch (err: any) {
       showToast(err.message || "Clock-in failed");
-    } fontally: {
+    } finally {
       setActionLoading(false);
     }
   };
@@ -273,52 +277,12 @@ export default function DashboardPage() {
     }
   };
 
-  const handleApplyLeave = async (form: { leaveType: string; startDate: string; endDate: string; reason: string }) => {
-    if (!currentUser) return;
-    const start = new Date(form.startDate);
-    const end = new Date(form.endDate);
-    const diffTime = Math.abs(end.getTime() - start.getTime());
-    const daysCount = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-    const res = await fetch(`${API_BASE}/api/leaves/apply`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: currentUser.id,
-        employeeId: currentUser.employeeId,
-        leaveType: form.leaveType,
-        startDate: form.startDate,
-        endDate: form.endDate,
-        daysCount: daysCount > 0 ? daysCount : 1,
-        reason: form.reason,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Failed to apply for time off");
-
-    showToast("Time off request submitted!");
-    fetchOrgData(currentUser.id, currentUser.employeeId, isHr);
-  };
-
-  const handleReviewLeave = async (leaveId: string, status: "approved" | "rejected", comments: string) => {
-    if (!currentUser) return;
-    const res = await fetch(`${API_BASE}/api/leaves/status`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        leaveId,
-        status,
-        comments,
-        reviewerId: currentUser.id,
-      }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `Failed to process leave`);
-
-    showToast(`Time off request ${status}!`);
-    fetchOrgData(currentUser.id, currentUser.employeeId, isHr);
+  // Leave actions are now handled inside TimeOffModule (self-contained)
+  // This callback refreshes the parent's lightweight leave list (for employee status cards)
+  const handleLeaveRefresh = () => {
+    if (currentUser?.id && currentUser?.employeeId) {
+      fetchOrgData(currentUser.id, currentUser.employeeId, isHr);
+    }
   };
 
   const handleOpenMyProfile = () => {
@@ -571,20 +535,19 @@ export default function DashboardPage() {
           />
         )}
 
-        {/* TAB 3: TIME OFF MODULE */}
+        {/* TAB 3: TIME OFF MODULE (self-contained) */}
         {activeTab === "time-off" && (
           <TimeOffModule
-            leaveRequests={leaveRequests}
             isHr={isHr}
             userId={currentUser.id}
             employeeId={currentUser.employeeId}
-            onApplyLeave={handleApplyLeave}
-            onReviewLeave={handleReviewLeave}
-            loading={loading}
+            fullName={userProfile?.full_name || currentUser.fullName}
+            onRefresh={handleLeaveRefresh}
           />
-            )}
-          </>
         )}
+        </>
+        )}
+
       </main>
 
       {/* Footer */}

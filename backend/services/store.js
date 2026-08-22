@@ -439,6 +439,7 @@ async function applyLeave(leaveData) {
     reason: leaveData.reason,
     status: 'pending',
     reviewer_comments: '',
+    attachment_url: leaveData.attachmentUrl || '',
     applied_at: new Date().toISOString(),
     reviewed_at: null,
     reviewed_by: null
@@ -819,6 +820,332 @@ async function updateSalaryInfo(userId, updateFields) {
   return salary;
 }
 
+// ============================================================
+// LEAVE BALANCE FUNCTIONS
+// ============================================================
+
+const DEFAULT_ALLOCATIONS = {
+  'Paid Time Off': 24,
+  'Sick Leave': 12,
+  'Unpaid Leave': 0
+};
+
+/**
+ * Get or create a leave balance record for a user/type/year
+ */
+async function getOrCreateLeaveBalance(userId, employeeId, leaveType, year) {
+  const currentYear = year || new Date().getFullYear();
+  try {
+    // Try to get existing
+    const { data: existing, error: getErr } = await supabaseAdmin
+      .from('leave_balances')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('leave_type', leaveType)
+      .eq('year', currentYear)
+      .maybeSingle();
+    if (!getErr && existing) return existing;
+
+    // Create if missing
+    const allocated = DEFAULT_ALLOCATIONS[leaveType] || 0;
+    const newBalance = {
+      user_id: userId,
+      employee_id: employeeId,
+      leave_type: leaveType,
+      allocated_days: allocated,
+      used_days: 0,
+      year: currentYear
+    };
+    const { data: created, error: createErr } = await supabaseAdmin
+      .from('leave_balances')
+      .insert(newBalance)
+      .select()
+      .single();
+    if (!createErr && created) return created;
+  } catch (e) {
+    console.error('getOrCreateLeaveBalance error:', e.message);
+  }
+  // Memory fallback
+  const allocated = DEFAULT_ALLOCATIONS[leaveType] || 0;
+  return { user_id: userId, employee_id: employeeId, leave_type: leaveType, allocated_days: allocated, used_days: 0, year: currentYear };
+}
+
+/**
+ * Get leave balances for a user (all 3 types)
+ */
+async function getLeaveBalances(userId, employeeId) {
+  const year = new Date().getFullYear();
+  const types = ['Paid Time Off', 'Sick Leave', 'Unpaid Leave'];
+  const balances = [];
+  for (const t of types) {
+    const b = await getOrCreateLeaveBalance(userId, employeeId, t, year);
+    balances.push(b);
+  }
+  return balances;
+}
+
+/**
+ * Get leave balances for ALL employees (HR view)
+ */
+async function getAllLeaveBalances() {
+  const year = new Date().getFullYear();
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('leave_balances')
+      .select('*, profiles:user_id(id, employee_id, full_name, email, department, position)')
+      .eq('year', year)
+      .order('employee_id');
+    if (!error && data) return data;
+  } catch (e) {
+    console.error('getAllLeaveBalances error:', e.message);
+  }
+  return [];
+}
+
+/**
+ * Deduct used days from a leave balance (called on approval)
+ */
+async function deductLeaveBalance(userId, employeeId, leaveType, daysToDeduct) {
+  // Normalize leave type (Paid Leave → Paid Time Off)
+  const normalizedType = leaveType === 'Paid Leave' ? 'Paid Time Off' : leaveType;
+  if (normalizedType === 'Unpaid Leave') return; // No balance to deduct for unpaid
+  if (!['Paid Time Off', 'Sick Leave'].includes(normalizedType)) return;
+
+  const year = new Date().getFullYear();
+  try {
+    const balance = await getOrCreateLeaveBalance(userId, employeeId, normalizedType, year);
+    const newUsed = (balance.used_days || 0) + daysToDeduct;
+    const { error } = await supabaseAdmin
+      .from('leave_balances')
+      .update({ used_days: newUsed, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('leave_type', normalizedType)
+      .eq('year', year);
+    if (error) console.error('deductLeaveBalance update error:', error.message);
+  } catch (e) {
+    console.error('deductLeaveBalance error:', e.message);
+  }
+}
+
+/**
+ * Restore balance when a previously-approved leave is reversed (safety measure)
+ */
+async function restoreLeaveBalance(userId, employeeId, leaveType, daysToRestore) {
+  const normalizedType = leaveType === 'Paid Leave' ? 'Paid Time Off' : leaveType;
+  if (normalizedType === 'Unpaid Leave') return;
+  if (!['Paid Time Off', 'Sick Leave'].includes(normalizedType)) return;
+
+  const year = new Date().getFullYear();
+  try {
+    const balance = await getOrCreateLeaveBalance(userId, employeeId, normalizedType, year);
+    const newUsed = Math.max(0, (balance.used_days || 0) - daysToRestore);
+    await supabaseAdmin
+      .from('leave_balances')
+      .update({ used_days: newUsed, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('leave_type', normalizedType)
+      .eq('year', year);
+  } catch (e) {
+    console.error('restoreLeaveBalance error:', e.message);
+  }
+}
+
+/**
+ * Update allocation for an employee (HR only)
+ */
+async function updateLeaveAllocation(userId, employeeId, leaveType, allocatedDays) {
+  const year = new Date().getFullYear();
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('leave_balances')
+      .upsert({
+        user_id: userId,
+        employee_id: employeeId,
+        leave_type: leaveType,
+        allocated_days: allocatedDays,
+        year,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id,leave_type,year' })
+      .select()
+      .single();
+    if (!error && data) return data;
+  } catch (e) {
+    console.error('updateLeaveAllocation error:', e.message);
+  }
+  return null;
+}
+
+// ============================================================
+// OVERLAP DETECTION
+// ============================================================
+
+/**
+ * Check if a new leave request overlaps with existing approved/pending requests
+ */
+async function checkLeaveOverlap(userId, startDate, endDate, excludeId) {
+  try {
+    let query = supabaseAdmin
+      .from('leave_requests')
+      .select('id, start_date, end_date, status, leave_type')
+      .eq('user_id', userId)
+      .in('status', ['pending', 'approved'])
+      .lte('start_date', endDate)
+      .gte('end_date', startDate);
+    if (excludeId) query = query.neq('id', excludeId);
+    const { data, error } = await query;
+    if (!error && data && data.length > 0) return data[0];
+  } catch (e) {
+    console.error('checkLeaveOverlap error:', e.message);
+  }
+  // Memory fallback
+  const overlap = memoryStore.leaveRequests.find(r => {
+    if (r.user_id !== userId) return false;
+    if (!['pending', 'approved'].includes(r.status)) return false;
+    if (excludeId && r.id === excludeId) return false;
+    return r.start_date <= endDate && r.end_date >= startDate;
+  });
+  return overlap || null;
+}
+
+// ============================================================
+// ATTENDANCE INTEGRATION (upsert leave status for date range)
+// ============================================================
+
+/**
+ * Calculate working days between two dates (excludes weekends)
+ */
+function calculateWorkingDays(startDate, endDate) {
+  let count = 0;
+  const start = new Date(startDate + 'T00:00:00Z');
+  const end = new Date(endDate + 'T00:00:00Z');
+  const current = new Date(start);
+  while (current <= end) {
+    const dow = current.getUTCDay();
+    if (dow !== 0 && dow !== 6) count++;
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return Math.max(1, count);
+}
+
+/**
+ * Upsert attendance records as 'leave' for each working day in the date range
+ */
+async function upsertAttendanceForLeave(userId, employeeId, startDate, endDate) {
+  const start = new Date(startDate + 'T00:00:00Z');
+  const end = new Date(endDate + 'T00:00:00Z');
+  const current = new Date(start);
+
+  while (current <= end) {
+    const dow = current.getUTCDay();
+    if (dow !== 0 && dow !== 6) { // Skip weekends
+      const dateStr = current.toISOString().split('T')[0];
+      try {
+        const { data: existing } = await supabaseAdmin
+          .from('attendance')
+          .select('id, status')
+          .eq('user_id', userId)
+          .eq('date', dateStr)
+          .maybeSingle();
+
+        if (existing) {
+          // Only update if not already checked in today (preserve active sessions)
+          if (existing.status !== 'checked-in') {
+            await supabaseAdmin
+              .from('attendance')
+              .update({ status: 'leave' })
+              .eq('id', existing.id);
+          }
+        } else {
+          await supabaseAdmin
+            .from('attendance')
+            .insert({
+              user_id: userId,
+              employee_id: employeeId,
+              date: dateStr,
+              check_in: null,
+              check_out: null,
+              work_hours: 0,
+              status: 'leave'
+            });
+        }
+      } catch (e) {
+        console.error(`upsertAttendanceForLeave error for ${dateStr}:`, e.message);
+      }
+    }
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+}
+
+/**
+ * Revert attendance records from 'leave' back to 'absent' (for rejected/cancelled leave)
+ */
+async function revertAttendanceForLeave(userId, startDate, endDate) {
+  const start = new Date(startDate + 'T00:00:00Z');
+  const end = new Date(endDate + 'T00:00:00Z');
+  const current = new Date(start);
+
+  while (current <= end) {
+    const dow = current.getUTCDay();
+    if (dow !== 0 && dow !== 6) {
+      const dateStr = current.toISOString().split('T')[0];
+      try {
+        await supabaseAdmin
+          .from('attendance')
+          .update({ status: 'absent' })
+          .eq('user_id', userId)
+          .eq('date', dateStr)
+          .eq('status', 'leave'); // Only revert if it was set to 'leave'
+      } catch (e) {
+        console.error(`revertAttendanceForLeave error for ${dateStr}:`, e.message);
+      }
+    }
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+}
+
+// ============================================================
+// ENHANCED: Get All Leaves with Profile join for HR search
+// ============================================================
+
+async function getAllLeavesWithProfiles(search) {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('leave_requests')
+      .select('*, profiles:user_id(id, employee_id, full_name, email, department, position, avatar_url)')
+      .order('applied_at', { ascending: false });
+
+    if (!error && data) {
+      if (search) {
+        const q = search.toLowerCase().trim();
+        return data.filter(r => {
+          const empId = (r.employee_id || '').toLowerCase();
+          const fullName = (r.profiles?.full_name || '').toLowerCase();
+          const email = (r.profiles?.email || '').toLowerCase();
+          return empId.includes(q) || fullName.includes(q) || email.includes(q);
+        });
+      }
+      return data;
+    }
+  } catch (e) {
+    console.error('getAllLeavesWithProfiles error:', e.message);
+  }
+  // Memory fallback with profile join
+  let results = memoryStore.leaveRequests.map(r => {
+    const prof = memoryStore.profiles.find(p => p.id === r.user_id || p.employee_id === r.employee_id);
+    return { ...r, profiles: prof || null };
+  });
+  if (search) {
+    const q = search.toLowerCase().trim();
+    results = results.filter(r => {
+      const empId = (r.employee_id || '').toLowerCase();
+      const fullName = (r.profiles?.full_name || '').toLowerCase();
+      const email = (r.profiles?.email || '').toLowerCase();
+      return empId.includes(q) || fullName.includes(q) || email.includes(q);
+    });
+  }
+  return results;
+}
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -831,6 +1158,7 @@ module.exports = {
   applyLeave,
   getUserLeaves,
   getAllLeaves,
+  getAllLeavesWithProfiles,
   updateLeaveStatus,
   logActivity,
   getUserActivities,
@@ -840,5 +1168,17 @@ module.exports = {
   updatePrivateInfo,
   getSalaryInfo,
   updateSalaryInfo,
-  memoryStore
+  memoryStore,
+  // Leave balance functions
+  getLeaveBalances,
+  getAllLeaveBalances,
+  getOrCreateLeaveBalance,
+  deductLeaveBalance,
+  restoreLeaveBalance,
+  updateLeaveAllocation,
+  // Overlap & calendar
+  checkLeaveOverlap,
+  calculateWorkingDays,
+  upsertAttendanceForLeave,
+  revertAttendanceForLeave,
 };
